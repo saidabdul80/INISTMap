@@ -1,4 +1,4 @@
-This is source code for the map of Niger State using HTML, CSS and Javascripti
+This is source code for the interactive map of Niger State using HTML, CSS and Javascripti
 
 Check the Demo here: https://saidabdul80.github.io/INISTMap/index.html
 

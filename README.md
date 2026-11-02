@@ -66,6 +66,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 - Responsive SVG map that preserves the original geometry.
 - Data-driven choropleth colors, optional per-feature labels, legend, and summary metrics.
 - Ward-level choropleths using your own metric for every ward in an LGA.
+- Categorical election views that color each LGA or ward by the party with the most votes.
 - Search and keyboard-accessible LGA selection.
 - Wheel/pinch zoom, drag-to-pan, zoom-to-selection, reset, and fullscreen controls.
 - SVG and PNG export of the current map view.
@@ -87,6 +88,8 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `featureMap` | Built-in IDs | Optional object mapping SVG element IDs to names when using alternate geometry, e.g. `{ region_a: 'Area A' }`. |
 | `valueLabel` | `Value` | Label shown in tooltips and the legend. |
 | `showLegend` | `true` | Show the data scale. |
+| `partyColors` | `null` | Optional party-to-color map, e.g. `{ APC: '#b5002b', A: '#f1b80b' }`. Items with `partyVotes` are colored by their leading party and use a category legend. |
+| `partyTieColor` | `#64748b` | Fill used when two or more parties tie for the highest vote total. |
 | `showSearch` | `true` | Show the LGA search field. |
 | `showStats` | `true` | Show feature count and average when numeric values exist. |
 | `showLabels` | `false` | Show data labels inside features when space allows; generated labels choose foreground and outline colors for contrast with each area. |
@@ -107,7 +110,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `wardDrilldown` | `false` | Build the built-in Niger map from the ward source so LGA shapes and ward shapes share the same projection and coverage, then smoothly zoom into the selected LGA. Wards remain interactive, and Back returns to all LGAs. Custom SVG maps use a clipped per-LGA fit. |
 | `wardDataUrl` | `null` | Optional HTTP(S) GeoJSON FeatureCollection URL. Local `file://` pages should load `assets/niger-wards.js` instead of fetching GeoJSON. |
 | `wardGeoJSON` | `null` | Pass a GeoJSON FeatureCollection directly; otherwise INISTMap uses the bundled `INISTMapWardData` global if loaded. |
-| `wardData` | `{}` | Optional ward metrics keyed first by LGA name, then by ward name. Numeric `value`s drive the ward choropleth and legend; each ward may also set `label`, `description`, `color`, and redirect fields. |
+| `wardData` | `{}` | Optional ward metrics keyed first by LGA name, then by ward name. Numeric `value`s drive a choropleth; `partyVotes` drives party-lead coloring when `partyColors` is set. Each item may also set `label`, `description`, `color`, and redirect fields. |
 | `redirectOnFeatureClick` | `false` | Navigate to that feature's `url`, `href`, or `redirect` URL on click. A feature can opt in individually with `redirect: true`. |
 | `redirectTarget` | `_self` | Open automatic redirects in the current tab or use `_blank` for a new tab. |
 | `scaleType` | `linear` | Choose `linear`, `equal`, or `quantile` choropleth coloring. |
@@ -120,7 +123,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `onReady(map)` | — | Called after the SVG has loaded and features are initialized. |
 | `onError(error)` | — | Called if the SVG cannot be loaded or parsed. |
 
-Feature objects passed to callbacks contain `id`, `name`, `value`, `label`, `description`, and the original `data` object. Area and label clicks share the same selection, callback, popover, and optional redirect behavior. Calling `map.setData(data)` refreshes colors and labels. Use `map.select(nameOrId)` to select an area, `map.zoomTo(nameOrId)` to focus it, `map.zoomBy(factor)` to zoom, `map.resetView()` to return to the full map, `map.addPin(pin)` / `map.removePin(id)` / `map.clearPins()` to manage pins, and `map.export('svg')` or `map.export('png')` to download the current view. `map.destroy()` removes listeners and rendered markup.
+Feature objects passed to callbacks contain `id`, `name`, `value`, `label`, `description`, and the original `data` object. Party data also exposes `winner`, `winningParties`, and `partyVotes`. Area and label clicks share the same selection, callback, popover, and optional redirect behavior. Calling `map.setData(data)` refreshes the current map level. Pass `{ level: 'lgas' }` to update the state view while viewing wards, or `{ level: 'wards', lga: 'Borgu' }` to update a specific LGA's ward metrics. `map.level` and `map.currentLga` identify the visible level and active LGA. `map.setWardData(data)` replaces the complete nested ward dataset; `map.setWardData(data, 'Borgu')` replaces one LGA's ward values. Use `map.select(nameOrId)` to select an area, `map.zoomTo(nameOrId)` to focus it, `map.zoomBy(factor)` to zoom, `map.resetView()` to return to the full map, `map.addPin(pin)` / `map.removePin(id)` / `map.clearPins()` to manage pins, and `map.export('svg')` or `map.export('png')` to download the current view. `map.destroy()` removes listeners and rendered markup.
 
 When ward drilldown is enabled, feature callbacks also include `level` (`'lgas'` or `'wards'`) and the parent `lga` for ward selections. Listen for `inistmap:level-change` to respond to map transitions. Call `map.backToLGAs()` to return to the full state view.
 
@@ -206,6 +209,61 @@ Add a mount point with a height, such as `<div id="ward-map" style="height: 560p
 Numeric ward values drive the choropleth automatically. The legend and color scale are calculated from the wards in the currently open LGA. For strictly comparable colors across LGA views, calculate a shared color ramp from your full dataset and pass each ward an explicit `color`; the built-in legend still reflects the currently open LGA's numeric values. A ward's `label` controls its displayed metric. Missing values remain neutral but their polygons are still interactive. Call `map.backToLGAs()` to return, then `map.openWardMap('Suleja')` to open another LGA.
 
 The [live demo](index.html) includes a ward heatmap with right-click details. Its generated values are illustrative and are not real service measurements.
+
+### “Who leads” party map
+
+To show the leading party, provide vote totals on each unit and a color for each party. The same `partyVotes` shape works for LGA records in `data` and ward records in `wardData`:
+
+```js
+const partyColors = { APC: '#b5002b', A: '#f1b80b' };
+
+const map = new INISTMap('#election-map', {
+  title: 'Leading party by area',
+  valueLabel: 'Who leads',
+  partyColors,
+  partyTieColor: '#64748b',
+  showLegend: true,
+  wardDrilldown: true,
+  data: {
+    Borgu: { partyVotes: { APC: 18300, A: 16400 } },
+    Suleja: { partyVotes: { APC: 12700, A: 15100 } }
+  },
+  wardData: {
+    Borgu: {
+      Babana: { partyVotes: { APC: 710, A: 584 } },
+      Bussa: { partyVotes: { APC: 422, A: 503 } }
+    }
+  },
+  onFeatureClick(feature) {
+    console.log(feature.level, feature.lga, feature.name);
+    console.log('Leader:', feature.winner, 'votes:', feature.partyVotes);
+  }
+});
+```
+
+Replace those example counts with your results for every LGA and ward. The map picks the highest vote total, applies its party color, and builds a category legend. If totals tie, the feature uses `partyTieColor` and `winningParties` lists all tied parties. The callback's `feature.data.partyVotes` retains the source totals; `feature.value` defaults to the leading party's vote count. Supply `label` or `description` on an item to override the generated party label and vote summary. The live demo's **Who leads** view uses illustrative sample counts only.
+
+When a dashboard switches datasets, update the LGA values and the nested ward values together. `setWardData` also refreshes the open LGA immediately when the map is already in ward view:
+
+```js
+function applyDataset(map, dataset) {
+  map.options.valueLabel = dataset.label;
+  map.options.colors = dataset.colors;
+  map.options.partyColors = dataset.partyColors || null;
+  map.setData(dataset.lgas, { level: 'lgas' });
+  map.setWardData(dataset.wards);
+}
+
+applyDataset(map, {
+  label: 'Who leads',
+  colors: ['#f1b80b', '#b5002b'],
+  partyColors,
+  lgas: nextLgaResults,
+  wards: nextWardResultsByLga
+});
+```
+
+The demo's dataset switcher uses this adapter pattern for coverage, field teams, open reports, and **Who leads**. Its generated counts are illustrative; replace them with your own data.
 
 ## Events
 

@@ -3,6 +3,14 @@ import type { WardFeatureCollection } from './ward-data';
 export type MapLevel = 'lgas' | 'wards';
 export type ScaleType = 'linear' | 'equal' | 'quantile';
 export type PopoverTrigger = 'hover' | 'click' | 'contextmenu' | 'both';
+export type PartyVotes = Record<string, number>;
+
+export interface MapDataScope {
+  /** The administrative level being updated. Defaults to the currently visible level. */
+  level?: MapLevel;
+  /** Required when updating one LGA's ward metrics while that LGA is not open. */
+  lga?: string;
+}
 
 export interface MapFeature {
   id: string;
@@ -12,6 +20,9 @@ export interface MapFeature {
   value: number | string | null;
   label: string;
   description: string;
+  winner?: string | null;
+  winningParties?: string[];
+  partyVotes?: PartyVotes | null;
   data: MapDataItem;
 }
 
@@ -27,6 +38,13 @@ export interface MapDataItem {
   target?: string;
   linkLabel?: string;
   navigate?: boolean;
+  /** Votes by party. With partyColors configured, the map colors this unit by its leading party. */
+  partyVotes?: PartyVotes;
+  winner?: string | null;
+  winningParties?: string[];
+  leadVotes?: number;
+  totalVotes?: number;
+  isTie?: boolean;
   [key: string]: unknown;
 }
 
@@ -52,6 +70,10 @@ export interface INISTMapOptions {
   featureMap?: Record<string, string> | null;
   valueLabel?: string;
   colors?: string[];
+  /** Party name to fill color, enabling categorical leader coloring for items with partyVotes. */
+  partyColors?: Record<string, string> | null;
+  /** Fill for units tied for the highest party vote total. */
+  partyTieColor?: string;
   scaleType?: ScaleType;
   classes?: number;
   showLegend?: boolean;
@@ -90,9 +112,13 @@ export interface INISTMapOptions {
 declare class INISTMap {
   static readonly features: Readonly<Record<string, string>>;
   readonly ready: Promise<INISTMap | null>;
+  readonly level: MapLevel;
+  readonly currentLga: string | null;
 
   constructor(target: string | Element, options?: INISTMapOptions);
-  setData(data: Record<string, MapDataItem>): this;
+  setData(data: Record<string, MapDataItem>, scope?: MapDataScope): this;
+  setWardData(data: Record<string, Record<string, MapDataItem>>): this;
+  setWardData(data: Record<string, MapDataItem>, lgaName: string): this;
   select(nameOrId: string): this;
   clearSelection(): this;
   zoomBy(factor: number, clientX?: number, clientY?: number, animate?: boolean): this;

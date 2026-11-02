@@ -117,7 +117,7 @@
 
       <section class="demo-section" id="demos">
         <div class="section-heading"><div><p class="eyebrow">Working examples</p><h2>A map that fits your dashboard</h2><p>Switch datasets, select an LGA, or copy a pattern for your product.</p></div>
-          <div class="toolbar" aria-label="Choose map dataset"><span class="toolbar-label">View:</span><button class="toggle" data-set="coverage" aria-pressed="true">Coverage</button><button class="toggle" data-set="agents" aria-pressed="false">Field teams</button><button class="toggle" data-set="incidents" aria-pressed="false">Open reports</button></div>
+          <div class="toolbar" aria-label="Choose map dataset"><span class="toolbar-label">View:</span><button class="toggle" data-set="coverage" aria-pressed="true">Coverage</button><button class="toggle" data-set="agents" aria-pressed="false">Field teams</button><button class="toggle" data-set="incidents" aria-pressed="false">Open reports</button><button class="toggle" data-set="leaders" aria-pressed="false">Who leads</button></div>
         </div>
         <div class="main-demo">
           <div class="panel">
@@ -132,7 +132,7 @@
 
         <div class="demo-grid">
           <article class="panel ward-drilldown-demo"><div class="panel-head"><strong>Ward coverage heatmap</strong><span>Illustrative values · Click or right-click a ward · Use “LGAs” to return</span></div><div id="ward-drilldown-map"></div></article>
-          <article class="panel plain-map"><div class="panel-head"><strong>Plain choropleth map</strong><span>Click an LGA to open its wards · Right-click for details · Drag to pan or wheel/pinch to zoom</span></div><div id="plain-map"></div></article>
+          <article class="panel plain-map"><div class="panel-head"><strong>Party lead map</strong><span>Illustrative votes · Click an LGA for wards · Right-click a unit for vote totals</span></div><div id="plain-map"></div></article>
           <article class="panel mini-map"><div class="panel-head"><strong>Location pins</strong><span>Click a pin</span></div><div id="pin-map"></div></article>
           <article class="map-card-dark"><div id="dark-map"></div></article>
         </div>
@@ -164,44 +164,88 @@
     };
     const agents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:18+(i*7)%34,label:String(18+(i*7)%34),description:'Field teams currently reporting from this area.'}]));
     const incidents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:(i*3)%13,label:String((i*3)%13),description:'Open reports logged in this demo area.'}]));
-    const wardCoverage = {};
-    window.INISTMapWardData.features.forEach(({properties},index)=>{
-      const {lga,ward}=properties;
-      const value=30+((index*17+11)%71);
-      wardCoverage[lga] ||= {};
-      wardCoverage[lga][ward]={value,label:value+'%',description:'Illustrative service coverage for '+ward+'. Replace this sample with your own ward metric.'};
-    });
-    const datasets = {coverage:{title:'Service coverage',label:'Coverage',data:coverage,colors:['#e6f2ee','#087f72']},agents:{title:'Field team activity',label:'Agents reporting',data:agents,colors:['#eaf0fb','#496dce']},incidents:{title:'Open reports by LGA',label:'Open reports',data:incidents,colors:['#fff0e9','#e46846']}};
+    const buildWardData = makeItem => {
+      const result={};
+      window.INISTMapWardData.features.forEach(({properties},index)=>{
+        const {lga,ward}=properties;
+        result[lga] ||= {};
+        result[lga][ward]=makeItem(index,ward,lga);
+      });
+      return result;
+    };
+    const wardCoverage=buildWardData((index,ward)=>{const value=30+((index*17+11)%71);return {value,label:value+'%',description:'Illustrative service coverage for '+ward+'. Replace this sample with your own ward metric.'};});
+    const wardAgents=buildWardData((index,ward)=>{const value=2+((index*7+3)%29);return {value,label:String(value),description:'Illustrative field-team count for '+ward+'.'};});
+    const wardIncidents=buildWardData((index,ward)=>{const value=(index*3)%13;return {value,label:String(value),description:'Illustrative open-report count for '+ward+'.'};});
+    const partyColors={A:'#f1b80b',APC:'#b5002b'};
+    const partyVotesFor=index=>{
+      let a=1400+((index*541+739)%5000),apc=1500+((index*827+281)%5000);
+      if(index%2===0&&a<=apc)a=apc+100+(index%300);
+      if(index%2===1&&apc<=a)apc=a+100+(index%300);
+      return {A:a,APC:apc};
+    };
+    const lgaNames=[...new Set(Object.values(INISTMap.features))];
+    const whoLeads=Object.fromEntries(lgaNames.map((name,index)=>[name,{partyVotes:partyVotesFor(index)}]));
+    const wardWhoLeads=buildWardData(index=>({partyVotes:partyVotesFor(index+31)}));
+    const datasets = {
+      coverage:{title:'Service coverage',label:'Coverage',data:coverage,wardData:wardCoverage,colors:['#e6f2ee','#087f72']},
+      agents:{title:'Field team activity',label:'Agents reporting',data:agents,wardData:wardAgents,colors:['#eaf0fb','#496dce']},
+      incidents:{title:'Open reports by LGA',label:'Open reports',data:incidents,wardData:wardIncidents,colors:['#fff0e9','#e46846']},
+      leaders:{title:'Who leads by vote',label:'Leading party',data:whoLeads,wardData:wardWhoLeads,colors:['#f1b80b','#b5002b'],partyColors}
+    };
     const mapOptions = (data, label, colors, compact=false, theme='light') => ({title:'Niger State',data,valueLabel:label,colors,compact,theme,showLegend:false,showSearch:false,showStats:false,wardDrilldown:true});
-    const mainMap = new INISTMap('#main-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors),onFeatureClick:updateInsight});
+    const mainMap = new INISTMap('#main-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors),wardData:wardCoverage,onFeatureClick:updateInsight});
     const wardExplorer = new INISTMap('#ward-drilldown-map',{title:'Niger State ward coverage',data:coverage,wardData:wardCoverage,valueLabel:'Service coverage',colors:['#edf6f3','#8dc9b7','#087f72'],scaleType:'linear',showLegend:true,showLabels:true,labelMode:'name',popover:true,popoverTrigger:'contextmenu',wardDrilldown:true,onFeatureClick(feature){if(feature.level==='wards')console.log('Ward selected:',feature.name,'in',feature.lga,feature.value);}});
     wardExplorer.ready.then(map=>map?.openWardMap('Borgu'));
     new INISTMap('#hero-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors,true),showLabels:false});
     new INISTMap('#pin-map', {...mapOptions({},'Locations',['#e8f3f1','#087f72'],true),pins:[{x:497,y:335,label:'Bida operations hub',description:'Regional coordination point',color:'#ef7954'},{x:693,y:415,label:'Suleja field office',description:'Support and logistics',color:'#4b72d5'}],onReady(map){map.addPin({x:383,y:525,label:'Mokwa supply point',color:'#36a67f',onClick:()=>alert('Mokwa supply point selected')});}});
     new INISTMap('#dark-map', {...mapOptions(agents,'Agents reporting',datasets.agents.colors,true,'dark'),showLegend:false,showStats:false});
-    const plainPalette={A:'#f1b80b',APC:'#b5002b'};
-    const plainData={};
-    [...new Set(Object.values(INISTMap.features))].forEach((name,index)=>{const lead=index%3===0?'APC':'A';plainData[name]={value:lead==='APC'?1:0,label:lead,color:plainPalette[lead]};});
-    new INISTMap('#plain-map',{title:'Niger State',data:plainData,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true,popoverTrigger:'contextmenu',wardDrilldown:true});
+    new INISTMap('#plain-map',{title:'Who leads by vote',data:whoLeads,wardData:wardWhoLeads,partyColors,valueLabel:'Leading party',variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:true,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true,popoverTrigger:'contextmenu',wardDrilldown:true});
 
     function updateInsight(area) {
       document.querySelector('#selected-name').textContent=area.name;
       document.querySelector('#selected-value').textContent=area.label||String(area.value??'—');
       document.querySelector('#selected-description').textContent=area.description||'Sample dashboard value for this local government area.';
-      document.querySelector('#area-breakdown').innerHTML='<div><div class="insight-row"><strong>Coverage</strong><span>'+coverage[area.name]?.value+'%</span></div><div class="progress"><i style="width:'+coverage[area.name]?.value+'%"></i></div></div><div><div class="insight-row"><strong>Agents active</strong><span>'+agents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(agents[area.name]?.value*2,100)+'%"></i></div></div><div><div class="insight-row"><strong>Open reports</strong><span>'+incidents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(incidents[area.name]?.value*8,100)+'%"></i></div></div>';
+      const breakdown=document.querySelector('#area-breakdown');
+      if(area.data?.partyVotes){
+        breakdown.replaceChildren();
+        Object.entries(area.data.partyVotes).forEach(([party,votes])=>{
+          const row=document.createElement('div');row.className='insight-row';
+          const name=document.createElement('strong');name.textContent=party;
+          const total=document.createElement('span');total.textContent=Number(votes).toLocaleString()+' votes';
+          row.append(name,total);breakdown.append(row);
+        });
+        return;
+      }
+      if(area.level==='wards'){
+        const row=document.createElement('div');row.className='insight-row';
+        const name=document.createElement('strong');name.textContent='Ward metric';
+        const value=document.createElement('span');value.textContent=area.label||String(area.value??'No data');
+        row.append(name,value);breakdown.replaceChildren(row);return;
+      }
+      breakdown.innerHTML='<div><div class="insight-row"><strong>Coverage</strong><span>'+coverage[area.name]?.value+'%</span></div><div class="progress"><i style="width:'+coverage[area.name]?.value+'%"></i></div></div><div><div class="insight-row"><strong>Agents active</strong><span>'+agents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(agents[area.name]?.value*2,100)+'%"></i></div></div><div><div class="insight-row"><strong>Open reports</strong><span>'+incidents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(incidents[area.name]?.value*8,100)+'%"></i></div></div>';
     }
     document.querySelectorAll('[data-set]').forEach(button=>button.addEventListener('click',()=>{
       const set=datasets[button.dataset.set];
       document.querySelectorAll('[data-set]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
       document.querySelector('#dataset-title').textContent=set.title;
-      mainMap.options.valueLabel=set.label;
-      mainMap.options.colors=set.colors;
-      mainMap.setData(set.data);
-      updateInsight({name:'Choose an LGA',label:'—',description:'Select a district on the map to inspect its demo metrics.'});
+      applyDataset(mainMap,set);
+      mainMap.clearSelection();
       document.querySelector('#selected-name').textContent='Choose an LGA';
       document.querySelector('#selected-value').textContent='—';
       document.querySelector('#area-breakdown').replaceChildren();
     }));
+
+    function applyDataset(map,dataset){
+      map.options.valueLabel=dataset.label;
+      map.options.colors=dataset.colors;
+      map.options.partyColors=dataset.partyColors||null;
+      map.options.showLegend=Boolean(dataset.partyColors);
+      map.options.showStats=Boolean(dataset.partyColors);
+      map.options.showLabels=true;
+      map.options.labelMode='both';
+      map.setData(dataset.data,{level:'lgas'});
+      map.setWardData(dataset.wardData||{});
+    }
     mainMap.ready.then(()=>mainMap.select('Borgu')).catch(console.error);
   </script>
 </body>

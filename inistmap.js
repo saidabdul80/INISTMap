@@ -45,6 +45,8 @@
     wardDataUrl: null,
     wardGeoJSON: null,
     wardData: {},
+    partyColors: null,
+    partyTieColor: '#64748b',
     redirectOnFeatureClick: false,
     redirectTarget: '_self',
     theme: 'light',
@@ -60,6 +62,7 @@
 
   const normalize = (value) => String(value || '').normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const normalizeLga = (value) => ({ agaie:'agai', munya:'muya' }[normalize(value)] || normalize(value));
 
   const contrastingLabelColors = (color) => {
     let rgb = null;
@@ -103,6 +106,9 @@
       this._renderShell();
       this.ready = this._load();
     }
+
+    get level() { return this._mapLevel; }
+    get currentLga() { return this._currentLgaName || null; }
 
     _renderShell() {
       this.container.replaceChildren();
@@ -621,16 +627,15 @@
         }
         return Math.abs(area / 2);
       };
-      const canonicalLga = (name) => ({ agaie:'agai', munya:'muya' }[normalize(name)] || normalize(name));
       const groups = new Map();
       allFeatures.forEach((feature) => {
-        const key = canonicalLga(feature.properties?.lga || '');
+        const key = normalizeLga(feature.properties?.lga || '');
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(feature);
       });
       const featureMap = {};
       const regions = Object.entries(FEATURES).map(([id, name]) => {
-        const lgaFeatures = groups.get(canonicalLga(name)) || [];
+        const lgaFeatures = groups.get(normalizeLga(name)) || [];
         if (!lgaFeatures.length) throw new Error('Ward boundaries are missing ' + name + '.');
         const fill = pathForRings(lgaFeatures.flatMap(ringsForFeature));
         const outlineRings = this._wardBoundaryRings(lgaFeatures).filter((ring) => projectedArea(ring) >= .5);
@@ -767,9 +772,52 @@
       return entry ? entry[1] || {} : null;
     }
 
+    _withPartyResults(item) {
+      const partyColors = this.options.partyColors;
+      if (!item?.partyVotes || !partyColors || typeof partyColors !== 'object') return item;
+      const votes = Object.entries(item.partyVotes)
+        .map(([party, count]) => [party, Number(count)])
+        .filter(([party, count]) => party && Number.isFinite(count) && count >= 0);
+      if (!votes.length) return item;
+      const leadVotes = Math.max(...votes.map(([, count]) => count));
+      const winningParties = votes.filter(([, count]) => count === leadVotes).map(([party]) => party);
+      const totalVotes = votes.reduce((sum, [, count]) => sum + count, 0);
+      if (totalVotes === 0) {
+        return {
+          ...item,
+          label:item.label ?? 'No results',
+          description:item.description || 'No party votes are available for this area.',
+          color:item.color || '#e2e8f0',
+          winner:null,
+          winningParties:[],
+          leadVotes:null,
+          totalVotes:0,
+          isTie:false
+        };
+      }
+      const winner = winningParties.length === 1 ? winningParties[0] : null;
+      const share = totalVotes ? Math.round(leadVotes / totalVotes * 100) : 0;
+      const voteSummary = votes.map(([party, count]) => party + ': ' + count.toLocaleString()).join(' · ');
+      const leadSummary = winner
+        ? winner + ' leads with ' + leadVotes.toLocaleString() + ' votes (' + share + '%)'
+        : 'Tie between ' + winningParties.join(' / ') + ' at ' + leadVotes.toLocaleString() + ' votes';
+      return {
+        ...item,
+        value: item.value ?? leadVotes,
+        label: item.label ?? (winner || 'Tie: ' + winningParties.join(' / ')),
+        description: item.description || leadSummary + '. Vote totals — ' + voteSummary + '.',
+        color: item.color || (winner ? partyColors[winner] : this.options.partyTieColor) || '#64748b',
+        winner,
+        winningParties,
+        leadVotes,
+        totalVotes,
+        isTie: !winner
+      };
+    }
+
     _featureData(feature) {
       const item = this._lookup(feature.name) || this._lookup(feature.id);
-      if (item) return item;
+      if (item) return this._withPartyResults(item);
       return this._mapLevel === 'wards'
         ? { description:'Electoral ward in ' + this._currentLgaName + ' Local Government Area, Niger State.' }
         : {};
@@ -814,7 +862,45 @@
       return Array.from({ length: count - 1 }, (_, i) => sorted[Math.min(sorted.length - 1, Math.ceil((i + 1) * sorted.length / count) - 1)]);
     }
 
-    setData(data) {
+    setData(data, scope = {}) {
+      const level = scope.level || this._mapLevel || 'lgas';
+      if (level === 'wards') {
+        const lga = scope.lga || this._currentLgaName;
+        if (lga) return this.setWardData(data, lga);
+        return this.setWardData(data);
+      }
+      if (level !== 'lgas') return this;
+      const nextData = data || {};
+      if (this._mapLevel === 'wards') {
+        if (this._mainViewSnapshot) {
+          this._mainViewSnapshot.data = nextData;
+          this._mainViewSnapshot.valueLabel = this.options.valueLabel;
+          this._mainViewSnapshot.showLabels = this.options.showLabels;
+          this._mainViewSnapshot.labelMode = this.options.labelMode;
+        }
+        return this;
+      }
+      return this._applyData(nextData);
+    }
+
+    setWardData(data, lgaName) {
+      const currentWardData = this.options.wardData || {};
+      if (lgaName) {
+        const key = Object.keys(currentWardData).find((name) => normalizeLga(name) === normalizeLga(lgaName)) || lgaName;
+        this.options.wardData = { ...currentWardData, [key]: data || {} };
+        if (this._mapLevel === 'wards' && normalizeLga(this._currentLgaName) === normalizeLga(lgaName)) {
+          return this._applyData(this.options.wardData[key]);
+        }
+        return this;
+      }
+      this.options.wardData = data || {};
+      if (this._mapLevel === 'wards' && this._currentLgaName) {
+        return this._applyData(this._wardDataFor(this._currentLgaName));
+      }
+      return this;
+    }
+
+    _applyData(data) {
       this.data = data || {};
       if (!this.svg) return this;
       const values = this.features.map((feature) => Number(this._featureData(feature).value)).filter(Number.isFinite);
@@ -851,12 +937,59 @@
       });
     }
 
+    _partyLegendData() {
+      const colors = this.options.partyColors;
+      if (!colors || typeof colors !== 'object') return null;
+      const items = this.features.map((feature) => this._featureData(feature));
+      if (!items.some((item) => Array.isArray(item.winningParties))) return null;
+      const winnerCounts = new Map();
+      let tieCount = 0;
+      let missingCount = 0;
+      items.forEach((item) => {
+        if (!Array.isArray(item.winningParties) || !item.winningParties.length) { missingCount++; return; }
+        if (item.winningParties.length > 1) tieCount++;
+        else if (item.winningParties.length === 1) {
+          const party = item.winningParties[0];
+          winnerCounts.set(party, (winnerCounts.get(party) || 0) + 1);
+        }
+      });
+      const entries = Object.entries(colors).map(([party, color]) => ({ party, color, count:winnerCounts.get(party) || 0 }));
+      winnerCounts.forEach((count, party) => {
+        if (!Object.prototype.hasOwnProperty.call(colors, party)) {
+          entries.push({ party, color:this.options.partyTieColor || '#64748b', count });
+        }
+      });
+      if (tieCount) entries.push({ party:'Tie', color:this.options.partyTieColor || '#64748b', count:tieCount });
+      if (missingCount) entries.push({ party:'No results', color:'#e2e8f0', count:missingCount });
+      return { entries, winnerCounts };
+    }
+
     _renderLegend(min, max, count, breaks = []) {
-      if (!this.options.showLegend || !count) { this.legend.replaceChildren(); return; }
+      const partyLegend = this._partyLegendData();
+      if (!this.options.showLegend || (!count && !partyLegend)) { this.legend.replaceChildren(); return; }
       this.legend.replaceChildren();
       const heading = document.createElement('p');
       heading.className = 'inistmap-aside-title';
       heading.textContent = this.options.valueLabel;
+      if (partyLegend) {
+        const categories = document.createElement('div');
+        categories.className = 'inistmap-category-legend';
+        categories.setAttribute('aria-label', this.options.valueLabel + ' categories');
+        partyLegend.entries.forEach(({ party, color, count:partyCount }) => {
+          const entry = document.createElement('div');
+          entry.className = 'inistmap-category-legend-item';
+          const swatch = document.createElement('span');
+          swatch.className = 'inistmap-category-swatch';
+          swatch.style.backgroundColor = color;
+          swatch.setAttribute('aria-hidden', 'true');
+          const label = document.createElement('span');
+          label.textContent = party + ' (' + partyCount + ')';
+          entry.append(swatch, label);
+          categories.append(entry);
+        });
+        this.legend.append(heading, categories);
+        return;
+      }
       const scale = document.createElement('div');
       scale.className = 'inistmap-scale';
       const palette = this._palette();
@@ -886,6 +1019,15 @@
 
     _renderStats(values) {
       if (!this.options.showStats) { this.stats.replaceChildren(); return; }
+      const partyLegend = this._partyLegendData();
+      if (partyLegend) {
+        const topParty = [...partyLegend.winnerCounts.entries()].sort((a, b) => b[1] - a[1])[0];
+        this.stats.innerHTML = '<div><strong class="inistmap-stat-count"></strong><span></span></div><div><strong class="inistmap-stat-average"></strong><span>Most common lead</span></div>';
+        this.stats.querySelector('.inistmap-stat-count').textContent = String(new Set(this.features.map((feature) => feature.name)).size);
+        this.stats.querySelector('.inistmap-stat-count + span').textContent = this._mapLevel === 'wards' ? 'Wards in LGA' : 'LGAs on map';
+        this.stats.querySelector('.inistmap-stat-average').textContent = topParty?.[0] || '—';
+        return;
+      }
       const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
       const countLabel = this._mapLevel === 'wards' ? 'Wards in LGA' : 'LGAs on map';
       this.stats.innerHTML = '<div><strong class="inistmap-stat-count"></strong><span>' + countLabel + '</span></div><div><strong class="inistmap-stat-average"></strong><span>Average ' + this._escape(this.options.valueLabel.toLowerCase()) + '</span></div>';
@@ -1267,7 +1409,19 @@
 
     _publicFeature(feature) {
       const item = this._featureData(feature);
-      return { id: feature.id, name: feature.name, level:this._mapLevel, lga:this._mapLevel === 'wards' ? this._currentLgaName : null, value: item.value ?? null, label: item.label ?? '', description: item.description || '', data: item };
+      return {
+        id:feature.id,
+        name:feature.name,
+        level:this._mapLevel,
+        lga:this._mapLevel === 'wards' ? this._currentLgaName : null,
+        value:item.value ?? null,
+        label:item.label ?? '',
+        description:item.description || '',
+        winner:item.winner ?? null,
+        winningParties:item.winningParties || [],
+        partyVotes:item.partyVotes || null,
+        data:item
+      };
     }
 
     _emit(name, detail) {
@@ -1278,7 +1432,9 @@
       const bundledWardData = this.options.wardGeoJSON || this._wardGeoJSON || root.INISTMapWardData;
       if (!this.options.wardDrilldown || (!bundledWardData && !this.options.wardDataUrl) || this._mapLevel !== 'lgas' || this._wardTransitionPending) return this;
       this._wardTransitionPending = true;
-      const lga = String(lgaName || '');
+      const requestedLga = String(lgaName || '');
+      const lgaFeature = this.features.find((feature) => normalizeLga(feature.name) === normalizeLga(requestedLga));
+      const lga = lgaFeature?.name || requestedLga;
       this.status.textContent = 'Loading wards for ' + lga + '…';
       try {
         if (!this._wardDataPromise) {
@@ -1293,14 +1449,10 @@
         }
         const collection = await this._wardDataPromise;
         if (this._mapLevel !== 'lgas') return this;
-        const aliases = { munya:'muya', agaie:'agai' };
-        const wanted = aliases[normalize(lga)] || normalize(lga);
         const wards = (collection.features || []).filter((feature) => {
-          const name = normalize(feature.properties?.lga);
-          return (aliases[name] || name) === wanted;
+          return normalizeLga(feature.properties?.lga) === normalizeLga(lga);
         });
         if (!wards.length) throw new Error('No ward boundaries were found for ' + lga + '.');
-        const lgaFeature = this.features.find((feature) => normalize(feature.name) === normalize(lga));
         if (lgaFeature) {
           this.status.textContent = 'Zooming into ' + lga + '…';
           this.zoomTo(lgaFeature.id, 1.08, true);
@@ -1337,7 +1489,7 @@
           description:'Electoral ward in ' + lga + ' Local Government Area, Niger State.'
         }]));
         Object.entries(suppliedWardData).forEach(([name, item]) => { wardData[name] = item; });
-        const hasWardMetrics = Object.values(wardData).some((item) => item && (item.value != null || item.label));
+        const hasWardMetrics = Object.values(wardData).some((item) => item && (item.value != null || item.label || item.partyVotes));
         if (!hasWardMetrics) this.options.valueLabel = 'Ward information';
         this.selectedId = null;
         this.search.closest('.inistmap-search-wrap').hidden = !this.options.showSearch;
@@ -1368,7 +1520,7 @@
           feature.node.style.pointerEvents = 'none';
           feature.node.setAttribute('tabindex', '-1');
           feature.node.setAttribute('aria-hidden', 'true');
-          if (normalize(feature.name) !== normalize(lga)) feature.node.style.display = 'none';
+          if (normalizeLga(feature.name) !== normalizeLga(lga)) feature.node.style.display = 'none';
         });
         this.features.forEach((feature) => this._bindFeature(feature));
         this._renderExtrusion();
@@ -1395,7 +1547,7 @@
     }
 
     _wardDataFor(lga) {
-      const entry = Object.entries(this.options.wardData || {}).find(([name]) => normalize(name) === normalize(lga));
+      const entry = Object.entries(this.options.wardData || {}).find(([name]) => normalizeLga(name) === normalizeLga(lga));
       return entry ? entry[1] || {} : {};
     }
 

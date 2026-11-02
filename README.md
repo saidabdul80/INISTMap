@@ -107,6 +107,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `zoomOnSelect` | `false` | Zoom into a feature whenever it is selected or a label is clicked. |
 | `popover` | `false` | Enable an anchored detail popover with the metric, description, and optional link. |
 | `popoverTrigger` | `both` | Choose `hover`, `click`, `contextmenu` (right-click), or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
+| `renderPopover` | `null` | Optional callback returning trusted HTML or a DOM node to add rich content to the popover body. |
 | `wardDrilldown` | `false` | Build the built-in Niger map from the ward source so LGA shapes and ward shapes share the same projection and coverage, then smoothly zoom into the selected LGA. Wards remain interactive, and Back returns to all LGAs. Custom SVG maps use a clipped per-LGA fit. |
 | `wardDataUrl` | `null` | Optional HTTP(S) GeoJSON FeatureCollection URL. Local `file://` pages should load `assets/niger-wards.js` instead of fetching GeoJSON. |
 | `wardGeoJSON` | `null` | Pass a GeoJSON FeatureCollection directly; otherwise INISTMap uses the bundled `INISTMapWardData` global if loaded. |
@@ -152,6 +153,29 @@ new INISTMap('#niger-map', {
 ```
 
 When `redirect` is omitted, the popover shows an explicit link and selection stays on the current page. Set `redirectOnFeatureClick: true` to make every feature with a valid `url` navigate when selected.
+
+Popover content can include trusted HTML either per feature or through `renderPopover`. The area title, metric, and close control remain built in; custom content replaces the plain-text description. Use `description` for untrusted text because HTML strings are inserted as markup. A callback may also return a DOM node:
+
+```js
+new INISTMap('#niger-map', {
+  popover: true,
+  data: {
+    Suleja: {
+      value: 88,
+      label: '88%',
+      status: 'On track',
+      popoverHtml: '<strong>Good coverage</strong><p>88 of 100 sites reported.</p>'
+    }
+  },
+  renderPopover(feature) {
+    const content = document.createElement('p');
+    content.textContent = 'Status: ' + String(feature.data.status ?? 'Unknown');
+    return content;
+  }
+});
+```
+
+The renderer takes precedence over a feature's `popoverHtml` when it returns a value. Return `null` or `undefined` to fall back to the feature HTML or plain-text description. Strings are trusted markup: sanitize content that comes from users, external APIs, or other untrusted sources before returning it.
 
 ### Ward boundary source
 

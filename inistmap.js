@@ -41,6 +41,7 @@
     zoomOnSelect: false,
     popover: false,
     popoverTrigger: 'both',
+    renderPopover: null,
     wardDrilldown: false,
     wardDataUrl: null,
     wardGeoJSON: null,
@@ -1214,6 +1215,15 @@
       this._clearPopoverHideTimer();
       this._popoverFeatureId = feature.id;
       const item = this._featureData(feature);
+      let customContent = item.popoverHtml;
+      if (typeof this.options.renderPopover === 'function') {
+        try {
+          const rendered = this.options.renderPopover(this._publicFeature(feature));
+          if (rendered !== undefined && rendered !== null) customContent = rendered;
+        } catch (error) {
+          this._emit('inistmap:error', { error });
+        }
+      }
       const heading = document.createElement('div');
       heading.className = 'inistmap-popover-heading';
       const title = document.createElement('h3');
@@ -1233,7 +1243,13 @@
       value.className = 'inistmap-popover-value';
       value.textContent = item.label || (item.value == null ? 'No data available' : String(item.value));
       this.popover.replaceChildren(heading, kicker, value);
-      if (item.description) {
+      if (typeof customContent === 'string' || (customContent && typeof customContent.nodeType === 'number')) {
+        const content = document.createElement('div');
+        content.className = 'inistmap-popover-custom';
+        if (typeof customContent === 'string') content.innerHTML = customContent;
+        else content.append(customContent);
+        this.popover.append(content);
+      } else if (item.description) {
         const description = document.createElement('p');
         description.className = 'inistmap-popover-description';
         description.textContent = item.description;

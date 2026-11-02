@@ -38,6 +38,9 @@
 .inistmap-popover-kicker { color:var(--im-muted); font-size:9px; font-weight:750; letter-spacing:.1em; margin:11px 0 3px; text-transform:uppercase; }
 .inistmap-popover-value { color:var(--im-accent); font-size:21px; font-weight:800; letter-spacing:-.04em; line-height:1.1; margin:0; }
 .inistmap-popover-description { color:var(--im-muted); font-size:11px; line-height:1.45; margin:8px 0 0; }
+.inistmap-popover-custom { color:var(--im-muted); font-size:11px; line-height:1.5; margin-top:8px; }
+.inistmap-popover-custom>:first-child { margin-top:0; }
+.inistmap-popover-custom>:last-child { margin-bottom:0; }
 .inistmap-aside { border-left:1px solid var(--im-line); display:flex; flex-direction:column; gap:20px; padding:20px; }
 .inistmap-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .inistmap-stats>div { background:var(--im-soft); border-radius:12px; display:grid; gap:4px; min-width:0; padding:12px; }

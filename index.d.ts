@@ -40,6 +40,8 @@ export interface MapDataItem {
   navigate?: boolean;
   /** Votes by party. With partyColors configured, the map colors this unit by its leading party. */
   partyVotes?: PartyVotes;
+  /** Trusted HTML inserted into the popover body. Use plain text `description` for untrusted content. */
+  popoverHtml?: string;
   winner?: string | null;
   winningParties?: string[];
   leadVotes?: number;
@@ -92,6 +94,8 @@ export interface INISTMapOptions {
   zoomOnSelect?: boolean;
   popover?: boolean;
   popoverTrigger?: PopoverTrigger;
+  /** Return trusted HTML or a DOM node for rich popover content. The node is appended to the popover. */
+  renderPopover?: (feature: MapFeature) => string | Node | null | undefined;
   wardDrilldown?: boolean;
   wardDataUrl?: string | null;
   wardGeoJSON?: WardFeatureCollection | null;

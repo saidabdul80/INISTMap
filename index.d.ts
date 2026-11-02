@@ -3,6 +3,7 @@ import type { WardFeatureCollection } from './ward-data';
 export type MapLevel = 'lgas' | 'wards';
 export type ScaleType = 'linear' | 'equal' | 'quantile';
 export type PopoverTrigger = 'hover' | 'click' | 'contextmenu' | 'both';
+export type PopoverPlacement = 'top' | 'bottom' | 'auto';
 export type PartyVotes = Record<string, number>;
 
 export interface MapDataScope {
@@ -94,6 +95,10 @@ export interface INISTMapOptions {
   zoomOnSelect?: boolean;
   popover?: boolean;
   popoverTrigger?: PopoverTrigger;
+  /** Preferred side of the pointer. The popover flips when there is not enough viewport space. */
+  popoverPlacement?: PopoverPlacement;
+  /** Extra CSS classes on the portalled popover element. */
+  popoverClassName?: string;
   /** Return trusted HTML or a DOM node for rich popover content. The node is appended to the popover. */
   renderPopover?: (feature: MapFeature) => string | Node | null | undefined;
   wardDrilldown?: boolean;
@@ -123,7 +128,7 @@ declare class INISTMap {
   setData(data: Record<string, MapDataItem>, scope?: MapDataScope): this;
   setWardData(data: Record<string, Record<string, MapDataItem>>): this;
   setWardData(data: Record<string, MapDataItem>, lgaName: string): this;
-  select(nameOrId: string): this;
+  select(nameOrId: string, event?: Event): this;
   clearSelection(): this;
   zoomBy(factor: number, clientX?: number, clientY?: number, animate?: boolean): this;
   zoomTo(nameOrId: string, padding?: number, animate?: boolean): this;

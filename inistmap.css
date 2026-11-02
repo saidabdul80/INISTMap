@@ -1,4 +1,4 @@
-.inistmap { --im-ink:#192c34; --im-muted:#71838b; --im-line:#e5ecec; --im-paper:#fff; --im-soft:#f5f8f8; --im-accent:#087f72; color:var(--im-ink); width:100%; font:inherit; }
+.inistmap { --im-ink:#192c34; --im-muted:#71838b; --im-line:#e5ecec; --im-paper:#fff; --im-soft:#f5f8f8; --im-accent:#087f72; --im-popover-width:320px; --im-popover-radius:14px; --im-popover-shadow:0 12px 32px rgba(5,15,24,.24); --im-popover-z-index:10000; color:var(--im-ink); width:100%; font:inherit; }
 .inistmap, .inistmap * { box-sizing:border-box; }
 .inistmap-shell { background:var(--im-paper); border:1px solid var(--im-line); border-radius:20px; box-shadow:0 14px 36px rgba(23,52,57,.07); overflow:hidden; }
 .inistmap-header { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:22px 26px 18px; border-bottom:1px solid var(--im-line); }
@@ -29,7 +29,8 @@
 .inistmap-feature:focus-visible { stroke:#f28554; stroke-width:3; }
 .inistmap-feature.inistmap-selected { filter:saturate(1.25); stroke:#173c39; stroke-width:2.5; }
 .inistmap-feature.inistmap-muted { opacity:.22; }
-.inistmap-popover { background:var(--im-paper); border:1px solid var(--im-line); border-radius:14px; box-shadow:0 12px 32px rgba(5,15,24,.24); color:var(--im-ink); left:8px; max-width:calc(100% - 16px); min-width:190px; padding:13px 15px; pointer-events:auto; position:absolute; width:240px; z-index:3; }
+.inistmap-popover,.inistmap-popover * { box-sizing:border-box; }
+.inistmap-popover { background:var(--im-paper); border:1px solid var(--im-line); border-radius:var(--im-popover-radius,14px); box-shadow:var(--im-popover-shadow,0 12px 32px rgba(5,15,24,.24)); color:var(--im-ink); left:0; max-height:calc(100vh - 24px); max-width:calc(100vw - 24px); min-width:min(190px,calc(100vw - 24px)); overflow:auto; padding:13px 15px; pointer-events:auto; position:fixed; width:var(--im-popover-width,320px); z-index:var(--im-popover-z-index,10000); }
 .inistmap-popover[hidden] { display:none; }
 .inistmap-popover-heading { align-items:flex-start; display:flex; gap:10px; justify-content:space-between; }
 .inistmap-popover-title { color:var(--im-ink); font-size:16px; letter-spacing:-.025em; line-height:1.25; margin:0; }

@@ -105,8 +105,10 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `extrusionDepth` | `0` | Draw one continuous, offset map silhouette behind the regions. Set a small value such as `8` for outside-only 3D depth. |
 | `extrusionColor` | `#25334a` | Color for the outside-only extrusion layer. |
 | `zoomOnSelect` | `false` | Zoom into a feature whenever it is selected or a label is clicked. |
-| `popover` | `false` | Enable an anchored detail popover with the metric, description, and optional link. |
+| `popover` | `false` | Enable a floating detail popover with the metric, description, and optional link. It is portalled to the page layer so it can extend beyond the map container. |
 | `popoverTrigger` | `both` | Choose `hover`, `click`, `contextmenu` (right-click), or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
+| `popoverPlacement` | `top` | Prefer `top`, `bottom`, or `auto` placement relative to the pointer. It flips and clamps to the viewport when needed. Keyboard selection anchors it to the feature. |
+| `popoverClassName` | `''` | Add custom CSS classes to the floating popover. Theme variables such as `--im-popover-width`, `--im-popover-radius`, and `--im-popover-shadow` are copied from the map instance. |
 | `renderPopover` | `null` | Optional callback returning trusted HTML or a DOM node to add rich content to the popover body. |
 | `wardDrilldown` | `false` | Build the built-in Niger map from the ward source so LGA shapes and ward shapes share the same projection and coverage, then smoothly zoom into the selected LGA. Wards remain interactive, and Back returns to all LGAs. Custom SVG maps use a clipped per-LGA fit. |
 | `wardDataUrl` | `null` | Optional HTTP(S) GeoJSON FeatureCollection URL. Local `file://` pages should load `assets/niger-wards.js` instead of fetching GeoJSON. |
@@ -155,6 +157,8 @@ new INISTMap('#niger-map', {
 When `redirect` is omitted, the popover shows an explicit link and selection stays on the current page. Set `redirectOnFeatureClick: true` to make every feature with a valid `url` navigate when selected.
 
 Popover content can include trusted HTML either per feature or through `renderPopover`. The area title, metric, and close control remain built in; custom content replaces the plain-text description. Use `description` for untrusted text because HTML strings are inserted as markup. A callback may also return a DOM node:
+
+The floating popover is attached to `document.body`, positioned above the pointer by default, and flipped below if there is not enough room. It repositions on map zoom, page scroll, and resize. Clicking elsewhere—including elsewhere on the map—or pressing Escape closes it. Since it is portalled outside the map element, use `popoverClassName` for custom selectors and set per-map `--im-popover-*` variables on the map mount element.
 
 ```js
 new INISTMap('#niger-map', {

@@ -41,6 +41,8 @@
     zoomOnSelect: false,
     popover: false,
     popoverTrigger: 'both',
+    popoverPlacement: 'top',
+    popoverClassName: '',
     renderPopover: null,
     wardDrilldown: false,
     wardDataUrl: null,
@@ -173,6 +175,8 @@
         const active = document.fullscreenElement === this.container;
         button.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
         button.title = active ? 'Exit fullscreen' : 'Fullscreen';
+        this._syncPopoverPortal();
+        this._positionPopover();
       };
       this.container.addEventListener('fullscreenchange', this._onFullscreenChange);
     }
@@ -283,7 +287,7 @@
           if (next) { event.preventDefault(); next.node.focus(); }
         }
       }, { signal });
-      if (this.options.popover && this.options.popoverTrigger === 'contextmenu') {
+      if (this.options.popover && ['contextmenu', 'both'].includes(this.options.popoverTrigger)) {
         this.svg.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           const target = event.target.closest?.('.inistmap-feature, .inistmap-feature-label');
@@ -291,7 +295,7 @@
           const featureId = target.getAttribute('data-inistmap-id') || target.getAttribute('data-feature-id');
           const feature = this.features.find((item) => item.id === featureId);
           if (!feature) return;
-          this._showPopover(feature);
+          this._showPopover(feature, event);
         }, { signal });
       }
       this._updateZoomLabel();
@@ -714,7 +718,7 @@
         svg.setAttribute('focusable', 'false');
         this.svg?.remove();
         const mapNode = document.importNode(svg, true);
-        const reference = this.popover || (this.tools.parentElement === this.stage ? this.tools : null);
+        const reference = this.tools.parentElement === this.stage ? this.tools : null;
         this.stage.insertBefore(mapNode, reference);
         this.svg = mapNode;
         this.featureMap = featureMap;
@@ -748,9 +752,9 @@
       node.setAttribute('aria-label', name);
       node.setAttribute('aria-pressed', 'false');
       node.setAttribute('data-inistmap-id', id);
-      node.addEventListener('pointerenter', () => this._hover(feature));
+      node.addEventListener('pointerenter', (event) => this._hover(feature, event));
       node.addEventListener('pointerleave', () => this._hover(null));
-      node.addEventListener('focus', () => this._hover(feature));
+      node.addEventListener('focus', (event) => this._hover(feature, event));
       node.addEventListener('blur', () => this._hover(null));
       node.addEventListener('click', (event) => {
         if (this._suppressNextClick && event.detail !== 0) {
@@ -1141,9 +1145,9 @@
             }
             this._activateFeature(features[0], event);
           });
-          text.addEventListener('pointerenter', () => this._hover(features[0]));
+          text.addEventListener('pointerenter', (event) => this._hover(features[0], event));
           text.addEventListener('pointerleave', () => this._hover(null));
-          text.addEventListener('focus', () => this._hover(features[0]));
+          text.addEventListener('focus', (event) => this._hover(features[0], event));
           text.addEventListener('blur', () => this._hover(null));
           if (showName) {
             const nameLine = document.createElementNS(SVG_NS, 'tspan');
@@ -1171,22 +1175,47 @@
       if (!this.options.popover) return;
       const popover = document.createElement('aside');
       popover.className = 'inistmap-popover';
+      String(this.options.popoverClassName || '').split(/\s+/).filter(Boolean).forEach((name) => popover.classList.add(name));
+      popover.dataset.inistmapInstance = String(this.instanceId);
       popover.hidden = true;
       popover.setAttribute('role', 'dialog');
       popover.setAttribute('aria-modal', 'false');
       popover.setAttribute('aria-label', 'Area details');
       this.popover = popover;
-      this.stage.append(popover);
+      this._syncPopoverPortal();
       popover.addEventListener('pointerenter', () => this._clearPopoverHideTimer());
       popover.addEventListener('pointerleave', () => this._schedulePopoverHide());
       this._onPopoverOutsidePointerDown = (event) => {
         if (this.popover && !this.popover.hidden && !this.popover.contains(event.target)) this._hidePopover();
       };
-      this.shell.addEventListener('pointerdown', this._onPopoverOutsidePointerDown);
+      document.addEventListener('pointerdown', this._onPopoverOutsidePointerDown, { capture:true, signal:this.abortController.signal });
       this._onPopoverKeydown = (event) => {
         if (event.key === 'Escape' && this.popover && !this.popover.hidden) this._hidePopover();
       };
-      this.container.addEventListener('keydown', this._onPopoverKeydown);
+      document.addEventListener('keydown', this._onPopoverKeydown, { signal:this.abortController.signal });
+      this._onPopoverViewportChange = () => this._positionPopover();
+      window.addEventListener('resize', this._onPopoverViewportChange, { passive:true, signal:this.abortController.signal });
+      document.addEventListener('scroll', this._onPopoverViewportChange, { capture:true, passive:true, signal:this.abortController.signal });
+    }
+
+    _syncPopoverPortal() {
+      if (!this.popover) return;
+      const fullscreen = document.fullscreenElement;
+      const target = fullscreen && (fullscreen === this.container || fullscreen.contains(this.container))
+        ? fullscreen
+        : document.body;
+      if (this.popover.parentElement !== target) target.append(this.popover);
+      const hostStyles = getComputedStyle(this.shell || this.container);
+      ['--im-ink', '--im-muted', '--im-line', '--im-paper', '--im-soft', '--im-accent', '--im-popover-width', '--im-popover-radius', '--im-popover-shadow', '--im-popover-z-index']
+        .forEach((property) => this.popover.style.setProperty(property, hostStyles.getPropertyValue(property)));
+      for (let index = 0; index < hostStyles.length; index++) {
+        const property = hostStyles[index];
+        if (property.startsWith('--im-')) this.popover.style.setProperty(property, hostStyles.getPropertyValue(property));
+      }
+      this.popover.style.fontFamily = hostStyles.fontFamily;
+      this.popover.style.fontSize = hostStyles.fontSize;
+      this.popover.style.fontWeight = hostStyles.fontWeight;
+      this.popover.style.lineHeight = hostStyles.lineHeight;
     }
 
     _featureUrl(item) {
@@ -1210,10 +1239,20 @@
       parent.append(link);
     }
 
-    _showPopover(feature) {
+    _showPopover(feature, event) {
       if (!this.popover) return;
       this._clearPopoverHideTimer();
+      this._syncPopoverPortal();
       this._popoverFeatureId = feature.id;
+      const anchor = feature.node.getBoundingClientRect();
+      const hasPointerPosition = event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)
+        && event.type !== 'focus' && event.type !== 'keydown' && !(event.type === 'click' && event.detail === 0);
+      const anchorX = hasPointerPosition ? event.clientX : anchor.left + anchor.width / 2;
+      const anchorY = hasPointerPosition ? event.clientY : anchor.top + anchor.height / 2;
+      this._popoverAnchorRatio = {
+        x:anchor.width ? Math.max(0, Math.min(1, (anchorX - anchor.left) / anchor.width)) : .5,
+        y:anchor.height ? Math.max(0, Math.min(1, (anchorY - anchor.top) / anchor.height)) : .5
+      };
       const item = this._featureData(feature);
       let customContent = item.popoverHtml;
       if (typeof this.options.renderPopover === 'function') {
@@ -1257,6 +1296,7 @@
       }
       this._addFeatureLink(this.popover, item, 'Open area');
       this.popover.dataset.featureId = feature.id;
+      this.popover.setAttribute('aria-label', feature.name + ' details');
       this.popover.hidden = false;
       this._positionPopover();
     }
@@ -1267,22 +1307,35 @@
       const feature = this.features.find((item) => item.id === featureId);
       if (!feature) return;
       const anchor = feature.node.getBoundingClientRect();
-      const stage = this.stage.getBoundingClientRect();
+      const ratio = this._popoverAnchorRatio || { x:.5, y:.5 };
+      const x = anchor.left + anchor.width * ratio.x;
+      const y = anchor.top + anchor.height * ratio.y;
+      const margin = 12;
+      const gap = 14;
+      this.popover.style.visibility = 'hidden';
       const popup = this.popover.getBoundingClientRect();
-      const x = anchor.left + anchor.width / 2 - stage.left;
-      const y = anchor.top + anchor.height / 2 - stage.top;
-      const gap = 12;
-      const left = Math.max(8, Math.min(stage.width - popup.width - 8, x - popup.width / 2));
-      let top = y - popup.height - gap;
-      if (top < 8) top = y + gap;
-      top = Math.max(8, Math.min(stage.height - popup.height - 8, top));
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const topSpace = y - gap - margin;
+      const bottomSpace = viewportHeight - y - gap - margin;
+      const preferred = this.options.popoverPlacement;
+      let placement = preferred === 'bottom' ? 'bottom' : 'top';
+      if (preferred === 'auto') placement = topSpace >= popup.height || topSpace >= bottomSpace ? 'top' : 'bottom';
+      else if (placement === 'top' && topSpace < popup.height && bottomSpace > topSpace) placement = 'bottom';
+      else if (placement === 'bottom' && bottomSpace < popup.height && topSpace > bottomSpace) placement = 'top';
+      const left = Math.max(margin, Math.min(viewportWidth - popup.width - margin, x - popup.width / 2));
+      const desiredTop = placement === 'top' ? y - popup.height - gap : y + gap;
+      const top = Math.max(margin, Math.min(viewportHeight - popup.height - margin, desiredTop));
+      this.popover.dataset.placement = placement;
       this.popover.style.left = left + 'px';
       this.popover.style.top = top + 'px';
+      this.popover.style.visibility = '';
     }
 
     _hidePopover() {
       this._clearPopoverHideTimer();
       this._popoverFeatureId = null;
+      this._popoverAnchorRatio = null;
       if (this.popover) this.popover.hidden = true;
     }
 
@@ -1303,8 +1356,8 @@
       return this.options.popover && (this.options.popoverTrigger === trigger || this.options.popoverTrigger === 'both');
     }
 
-    _activateFeature(feature) {
-      this.select(feature.id);
+    _activateFeature(feature, event) {
+      this.select(feature.id, event);
       const item = this._featureData(feature);
       const url = this._featureUrl(item);
       const shouldRedirect = this.options.redirectOnFeatureClick || item.redirect === true || item.navigate === true || typeof item.redirect === 'string';
@@ -1341,16 +1394,16 @@
       this.search.value = feature.name;
     }
 
-    _hover(feature) {
+    _hover(feature, event) {
       if (feature) {
         this._clearPopoverHideTimer();
-        if (this._usesPopoverTrigger('hover')) this._showPopover(feature);
+        if (this._usesPopoverTrigger('hover')) this._showPopover(feature, event);
       } else this._schedulePopoverHide();
       if (typeof this.options.onFeatureHover === 'function') this.options.onFeatureHover(feature ? this._publicFeature(feature) : null);
       this._emit('inistmap:hover', feature ? this._publicFeature(feature) : null);
     }
 
-    select(nameOrId) {
+    select(nameOrId, event) {
       const query = normalize(nameOrId);
       const feature = this.features.find((item) => normalize(item.id) === query || normalize(item.name) === query);
       if (!feature) return this;
@@ -1363,7 +1416,7 @@
       this._showDetail(feature);
       this.tools.querySelector('[data-action="fit-selection"]').disabled = false;
       if (this.options.zoomOnSelect) this.zoomTo(feature.name);
-      if (this._usesPopoverTrigger('click')) this._showPopover(feature);
+      if (this._usesPopoverTrigger('click')) this._showPopover(feature, event);
       const detail = this._publicFeature(feature);
       this.status.textContent = feature.name + ' selected.';
       if (typeof this.options.onFeatureClick === 'function') this.options.onFeatureClick(detail);
@@ -1714,9 +1767,8 @@
       document.removeEventListener('pointerup', this._onPointerUp);
       document.removeEventListener('pointercancel', this._onPointerUp);
       this.container.removeEventListener('fullscreenchange', this._onFullscreenChange);
-      if (this._onPopoverOutsidePointerDown) this.shell.removeEventListener('pointerdown', this._onPopoverOutsidePointerDown);
-      if (this._onPopoverKeydown) this.container.removeEventListener('keydown', this._onPopoverKeydown);
       this.resizeObserver?.disconnect();
+      this.popover?.remove();
       this.container.replaceChildren();
       this.container.removeAttribute('aria-busy');
       this.container.classList.remove('inistmap');

@@ -39,6 +39,7 @@
     extrusionColor: '#25334a',
     zoomOnSelect: false,
     popover: false,
+    popoverTrigger: 'both',
     redirectOnFeatureClick: false,
     redirectTarget: '_self',
     theme: 'light',
@@ -172,9 +173,9 @@
         const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.stage.clientHeight : 1;
         const delta = Math.max(-600, Math.min(600, event.deltaY * unit));
         const magnitude = Math.abs(delta);
-        const sensitivity = Math.max(0.1, Math.min(2, Number(this.options.wheelSensitivity) || 1));
+        const sensitivity = Math.max(0.1, Math.min(20, Number(this.options.wheelSensitivity) || 1));
         const gain = event.ctrlKey ? 0.00032 : event.deltaMode !== 0 || magnitude >= 80 ? 0.0006 : 0.00025;
-        const factor = Math.exp(-delta * gain * sensitivity);
+        const factor = Math.max(Math.exp(-0.12), Math.min(Math.exp(0.12), Math.exp(-delta * gain * sensitivity)));
         const source = this._wheelTargetBox || this._animationTargetBox || this.viewBox;
         this._cancelViewAnimation();
         this._wheelTargetBox = this._constrainViewBox(this._zoomedBox(factor, event.clientX, event.clientY, source));
@@ -791,12 +792,16 @@
           text.style.paintOrder = 'stroke';
           text.addEventListener('click', (event) => {
             event.stopPropagation();
-            if (this._suppressNextClick) {
+            if (this._suppressNextClick && event.detail !== 0) {
               this._suppressNextClick = false;
               return;
             }
-            features[0].node.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true, view:window }));
+            this._activateFeature(features[0], event);
           });
+          text.addEventListener('pointerenter', () => this._hover(features[0]));
+          text.addEventListener('pointerleave', () => this._hover(null));
+          text.addEventListener('focus', () => this._hover(features[0]));
+          text.addEventListener('blur', () => this._hover(null));
           if (showName) {
             const nameLine = document.createElementNS(SVG_NS, 'tspan');
             nameLine.setAttribute('x', String(box.x + box.width / 2));
@@ -829,6 +834,8 @@
       popover.setAttribute('aria-label', 'Area details');
       this.popover = popover;
       this.stage.append(popover);
+      popover.addEventListener('pointerenter', () => this._clearPopoverHideTimer());
+      popover.addEventListener('pointerleave', () => this._schedulePopoverHide());
       this._onPopoverOutsidePointerDown = (event) => {
         if (this.popover && !this.popover.hidden && !this.popover.contains(event.target)) this._hidePopover();
       };
@@ -862,6 +869,8 @@
 
     _showPopover(feature) {
       if (!this.popover) return;
+      this._clearPopoverHideTimer();
+      this._popoverFeatureId = feature.id;
       const item = this._featureData(feature);
       const heading = document.createElement('div');
       heading.className = 'inistmap-popover-heading';
@@ -895,8 +904,9 @@
     }
 
     _positionPopover() {
-      if (!this.popover || this.popover.hidden || !this.selectedId || !this.svg) return;
-      const feature = this.features.find((item) => item.id === this.selectedId);
+      if (!this.popover || this.popover.hidden || !this.svg) return;
+      const featureId = this._popoverFeatureId || this.selectedId;
+      const feature = this.features.find((item) => item.id === featureId);
       if (!feature) return;
       const anchor = feature.node.getBoundingClientRect();
       const stage = this.stage.getBoundingClientRect();
@@ -913,7 +923,26 @@
     }
 
     _hidePopover() {
+      this._clearPopoverHideTimer();
+      this._popoverFeatureId = null;
       if (this.popover) this.popover.hidden = true;
+    }
+
+    _clearPopoverHideTimer() {
+      if (this._popoverHideTimer) clearTimeout(this._popoverHideTimer);
+      this._popoverHideTimer = null;
+    }
+
+    _schedulePopoverHide() {
+      if (!this._usesPopoverTrigger('hover')) return;
+      this._clearPopoverHideTimer();
+      this._popoverHideTimer = setTimeout(() => {
+        if (this.popover && !this.popover.matches(':hover')) this._hidePopover();
+      }, 180);
+    }
+
+    _usesPopoverTrigger(trigger) {
+      return this.options.popover && (this.options.popoverTrigger === trigger || this.options.popoverTrigger === 'both');
     }
 
     _activateFeature(feature) {
@@ -952,6 +981,10 @@
     }
 
     _hover(feature) {
+      if (feature) {
+        this._clearPopoverHideTimer();
+        if (this._usesPopoverTrigger('hover')) this._showPopover(feature);
+      } else this._schedulePopoverHide();
       if (typeof this.options.onFeatureHover === 'function') this.options.onFeatureHover(feature ? this._publicFeature(feature) : null);
       this._emit('inistmap:hover', feature ? this._publicFeature(feature) : null);
     }
@@ -969,7 +1002,7 @@
       this._showDetail(feature);
       this.tools.querySelector('[data-action="fit-selection"]').disabled = false;
       if (this.options.zoomOnSelect) this.zoomTo(feature.name);
-      if (this.options.popover) this._showPopover(feature);
+      if (this._usesPopoverTrigger('click')) this._showPopover(feature);
       const detail = this._publicFeature(feature);
       this.status.textContent = feature.name + ' selected.';
       if (typeof this.options.onFeatureClick === 'function') this.options.onFeatureClick(detail);
@@ -1046,6 +1079,7 @@
 
     destroy() {
       this.destroyed = true;
+      this._clearPopoverHideTimer();
       this.abortController.abort();
       this._cancelWheelZoom();
       this._cancelViewAnimation();

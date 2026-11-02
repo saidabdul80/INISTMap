@@ -63,13 +63,14 @@ The map needs a container with a non-zero height. The default SVG geometry is bu
 | `theme` | `light` | Set to `dark` for a dark dashboard card. |
 | `showControls` | `true` | Show zoom, focus, reset, fullscreen, and export controls. |
 | `wheelZoom` | `true` | Enable wheel and touchpad zoom over the map. Two-finger touch zoom is also supported. |
-| `wheelSensitivity` | `1` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `2` (fast). |
+| `wheelSensitivity` | `1` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `20` (fast). Large values are capped to a smooth per-step change. |
 | `minZoom` / `maxZoom` | `1` / `8` | Set allowed zoom bounds. |
 | `panOverscroll` | `0.12` | Allow a small pan margin around the map, including at the initial zoom level. Set to `0` to keep the map inside its original bounds. |
 | `extrusionDepth` | `0` | Draw one continuous, offset map silhouette behind the regions. Set a small value such as `8` for outside-only 3D depth. |
 | `extrusionColor` | `#25334a` | Color for the outside-only extrusion layer. |
 | `zoomOnSelect` | `false` | Zoom into a feature whenever it is selected or a label is clicked. |
-| `popover` | `false` | Show an anchored detail popover when an area or its label is clicked. It includes the metric, description, and optional link. |
+| `popover` | `false` | Enable an anchored detail popover with the metric, description, and optional link. |
+| `popoverTrigger` | `both` | Choose `hover`, `click`, or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
 | `redirectOnFeatureClick` | `false` | Navigate to that feature's `url`, `href`, or `redirect` URL on click. A feature can opt in individually with `redirect: true`. |
 | `redirectTarget` | `_self` | Open automatic redirects in the current tab or use `_blank` for a new tab. |
 | `scaleType` | `linear` | Choose `linear`, `equal`, or `quantile` choropleth coloring. |
@@ -89,6 +90,7 @@ Feature objects passed to callbacks contain `id`, `name`, `value`, `label`, `des
 ```js
 new INISTMap('#niger-map', {
   popover: true,
+  popoverTrigger: 'both', // 'hover', 'click', or 'both'
   data: {
     Suleja: {
       value: 88,
@@ -120,7 +122,7 @@ document.querySelector('#niger-map').addEventListener('inistmap:select', (event)
 
 Available events: `inistmap:ready`, `inistmap:select`, `inistmap:hover`, `inistmap:viewport`, and `inistmap:error`.
 
-The map supports keyboard shortcuts when a region is focused: `+` / `-` zoom, `0` or `Home` resets, and arrow keys move focus between areas. On touch screens, drag to pan and pinch to zoom. Area-name SVG labels ignore pointer events so clicks pass through to the feature beneath them.
+The map supports keyboard shortcuts when a region is focused: `+` / `-` zoom, `0` or `Home` resets, and arrow keys move focus between areas. On touch screens, drag to pan and pinch to zoom. Generated data labels activate the same selection, callback, popover, and redirect behavior as their mapped area.
 
 ## Demos
 

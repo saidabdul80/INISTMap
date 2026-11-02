@@ -2,6 +2,37 @@
 
 An embeddable, dependency-free SVG map of Niger State, Nigeria. Use it as a lightweight browser plugin to explore local data, compare values by LGA, add map pins, or build a custom dashboard.
 
+## Install from npm
+
+```sh
+npm install @saidabdul80/inistmap
+```
+
+Import the map class and stylesheet in an ESM application:
+
+```js
+import INISTMap from '@saidabdul80/inistmap';
+import '@saidabdul80/inistmap/style.css';
+
+const map = new INISTMap('#niger-map', {
+  title: 'Niger State',
+  data: { Suleja: { value: 91, label: '91%' } }
+});
+```
+
+For ward drilldown, also import the bundled boundaries and pass them explicitly:
+
+```js
+import wardGeoJSON from '@saidabdul80/inistmap/ward-data';
+
+const map = new INISTMap('#niger-map', {
+  wardDrilldown: true,
+  wardGeoJSON
+});
+```
+
+CommonJS applications can use `require('@saidabdul80/inistmap')` and `require('@saidabdul80/inistmap/ward-data')`.
+
 ## Quick start
 
 Copy `inistmap.js` and `inistmap.css` into your project. The built-in Niger State SVG is bundled in the JavaScript file. To use the Niger ward drilldown offline, also copy `assets/niger-wards.js` and load it before `inistmap.js`. Add a mount point and initialize the map:
@@ -34,6 +65,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 - No runtime dependencies, framework, API key, or build step.
 - Responsive SVG map that preserves the original geometry.
 - Data-driven choropleth colors, optional per-feature labels, legend, and summary metrics.
+- Ward-level choropleths using your own metric for every ward in an LGA.
 - Search and keyboard-accessible LGA selection.
 - Wheel/pinch zoom, drag-to-pan, zoom-to-selection, reset, and fullscreen controls.
 - SVG and PNG export of the current map view.
@@ -65,17 +97,17 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `showControls` | `true` | Show zoom, focus, reset, fullscreen, and export controls. |
 | `wheelZoom` | `true` | Enable wheel and touchpad zoom over the map. Two-finger touch zoom is also supported. |
 | `wheelSensitivity` | `20` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `20` (fast). Large values are capped to a smooth per-step change. |
-| `minZoom` / `maxZoom` | `1` / `8` | Set allowed zoom bounds. |
+| `minZoom` / `maxZoom` | `0` / `8` | Set allowed zoom bounds relative to the initial view. `minZoom: 0` permits zooming out to the 0% display floor; values above zero set a closer zoom-out limit. |
 | `panOverscroll` | `0.12` | Allow a small pan margin around the map, including at the initial zoom level. Set to `0` to keep the map inside its original bounds. |
 | `extrusionDepth` | `0` | Draw one continuous, offset map silhouette behind the regions. Set a small value such as `8` for outside-only 3D depth. |
 | `extrusionColor` | `#25334a` | Color for the outside-only extrusion layer. |
 | `zoomOnSelect` | `false` | Zoom into a feature whenever it is selected or a label is clicked. |
 | `popover` | `false` | Enable an anchored detail popover with the metric, description, and optional link. |
 | `popoverTrigger` | `both` | Choose `hover`, `click`, `contextmenu` (right-click), or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
-| `wardDrilldown` | `false` | Smoothly zoom into the selected LGA and reveal its ward boundaries fitted to and clipped by that LGA's own map outline. Each LGA is fitted independently. Wards remain interactive, and Back returns to all LGAs. |
+| `wardDrilldown` | `false` | Build the built-in Niger map from the ward source so LGA shapes and ward shapes share the same projection and coverage, then smoothly zoom into the selected LGA. Wards remain interactive, and Back returns to all LGAs. Custom SVG maps use a clipped per-LGA fit. |
 | `wardDataUrl` | `null` | Optional HTTP(S) GeoJSON FeatureCollection URL. Local `file://` pages should load `assets/niger-wards.js` instead of fetching GeoJSON. |
 | `wardGeoJSON` | `null` | Pass a GeoJSON FeatureCollection directly; otherwise INISTMap uses the bundled `INISTMapWardData` global if loaded. |
-| `wardData` | `{}` | Optional ward metrics keyed by LGA, then ward name, e.g. `{ Borgu: { Baro: { value: 42, label: '42%' } } }`. |
+| `wardData` | `{}` | Optional ward metrics keyed first by LGA name, then by ward name. Numeric `value`s drive the ward choropleth and legend; each ward may also set `label`, `description`, `color`, and redirect fields. |
 | `redirectOnFeatureClick` | `false` | Navigate to that feature's `url`, `href`, or `redirect` URL on click. A feature can opt in individually with `redirect: true`. |
 | `redirectTarget` | `_self` | Open automatic redirects in the current tab or use `_blank` for a new tab. |
 | `scaleType` | `linear` | Choose `linear`, `equal`, or `quantile` choropleth coloring. |
@@ -120,7 +152,60 @@ When `redirect` is omitted, the popover shows an explicit link and selection sta
 
 ### Ward boundary source
 
-The bundled ward polygons come from **GRID3 NGA Operational Wards v4.0**, published in October 2026. The source includes Niger State's 25 LGAs and 275 wards. Attribution is shown while a ward map is open. The dataset is licensed CC BY-SA 4.0; redistributed copies and derived boundary data must keep the attribution and the same license. GRID3 describes the boundaries as operational and not yet fully validated by government authorities, so treat them as a planning/map layer rather than authoritative legal boundaries. See [GRID3's Nigeria data catalogue](https://grid3.org/geospatial-data-nigeria) and the [GRID3 v4 ArcGIS Feature Service](https://services3.arcgis.com/BU6Aadhn6tbBEdyk/ArcGIS/rest/services/GRID3_NGA_operational_wards_v4_0/FeatureServer).
+The bundled ward polygons come from **GRID3 NGA Operational Wards v4.0**, published in October 2026. The source includes Niger State's 25 LGAs and 275 wards. Attribution is shown on the source-derived LGA map and in ward view. The dataset is licensed CC BY-SA 4.0; redistributed copies and derived boundary data must keep the attribution and the same license. GRID3 describes the boundaries as operational and not yet fully validated by government authorities, so treat them as a planning/map layer rather than authoritative legal boundaries. See [GRID3's Nigeria data catalogue](https://grid3.org/geospatial-data-nigeria) and the [GRID3 v4 ArcGIS Feature Service](https://services3.arcgis.com/BU6Aadhn6tbBEdyk/ArcGIS/rest/services/GRID3_NGA_operational_wards_v4_0/FeatureServer).
+
+### Ward heatmaps and interaction
+
+Pass ward metrics separately from LGA metrics. `data` colors the state map; `wardData` is nested by LGA and ward, and colors the ward map after a user opens an LGA. Keys should match the names in the bundled boundary data.
+
+This ESM example creates **illustrative** values for every bundled ward so the heatmap is complete. Replace the generated values with your own measurements:
+
+```js
+import INISTMap from '@saidabdul80/inistmap';
+import '@saidabdul80/inistmap/style.css';
+import wardGeoJSON from '@saidabdul80/inistmap/ward-data';
+
+const wardData = {};
+wardGeoJSON.features.forEach(({ properties }, index) => {
+  const { lga, ward } = properties;
+  const value = 30 + ((index * 17 + 11) % 71); // Demo only; replace with your metric.
+  wardData[lga] ??= {};
+  wardData[lga][ward] = {
+    value,
+    label: `${value}%`,
+    description: `Illustrative service coverage for ${ward}.`
+  };
+});
+
+const map = new INISTMap('#ward-map', {
+  title: 'Ward service coverage',
+  data: { Borgu: { value: 71, label: '71%' } }, // LGA-level values
+  wardData,                                    // Ward-level values
+  wardGeoJSON,
+  wardDrilldown: true,
+  valueLabel: 'Service coverage',
+  colors: ['#edf6f3', '#8dc9b7', '#087f72'],
+  scaleType: 'linear',
+  showLegend: true,
+  showLabels: true,
+  popover: true,
+  popoverTrigger: 'click',
+  onFeatureClick(feature) {
+    if (feature.level === 'wards') {
+      console.log(feature.name, feature.lga, feature.value, feature.data);
+    }
+  }
+});
+
+await map.ready;
+await map.openWardMap('Borgu'); // Optional: open directly to one LGA's wards.
+```
+
+Add a mount point with a height, such as `<div id="ward-map" style="height: 560px"></div>`. With `wardDrilldown: true`, clicking an LGA opens its ward boundaries; clicking, tapping, or keyboard-selecting a ward selects it and calls `onFeatureClick`. A ward callback has `level: 'wards'` and its parent `lga`, so one callback can handle both levels. `popoverTrigger: 'contextmenu'` opens the same details on right-click, while `'click'` works better on touch devices. Search, keyboard navigation, the detail panel, and the Back to LGAs control remain available in ward view.
+
+Numeric ward values drive the choropleth automatically. The legend and color scale are calculated from the wards in the currently open LGA. For strictly comparable colors across LGA views, calculate a shared color ramp from your full dataset and pass each ward an explicit `color`; the built-in legend still reflects the currently open LGA's numeric values. A ward's `label` controls its displayed metric. Missing values remain neutral but their polygons are still interactive. Call `map.backToLGAs()` to return, then `map.openWardMap('Suleja')` to open another LGA.
+
+The [live demo](index.html) includes a ward heatmap with right-click details. Its generated values are illustrative and are not real service measurements.
 
 ## Events
 

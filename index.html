@@ -131,7 +131,7 @@
         </div>
 
         <div class="demo-grid">
-          <article class="panel ward-drilldown-demo"><div class="panel-head"><strong>LGA → ward explorer</strong><span>Ward names are shown · Right-click a ward for details · Use “LGAs” to return</span></div><div id="ward-drilldown-map"></div></article>
+          <article class="panel ward-drilldown-demo"><div class="panel-head"><strong>Ward coverage heatmap</strong><span>Illustrative values · Click or right-click a ward · Use “LGAs” to return</span></div><div id="ward-drilldown-map"></div></article>
           <article class="panel plain-map"><div class="panel-head"><strong>Plain choropleth map</strong><span>Click an LGA to open its wards · Right-click for details · Drag to pan or wheel/pinch to zoom</span></div><div id="plain-map"></div></article>
           <article class="panel mini-map"><div class="panel-head"><strong>Location pins</strong><span>Click a pin</span></div><div id="pin-map"></div></article>
           <article class="map-card-dark"><div id="dark-map"></div></article>
@@ -164,10 +164,17 @@
     };
     const agents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:18+(i*7)%34,label:String(18+(i*7)%34),description:'Field teams currently reporting from this area.'}]));
     const incidents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:(i*3)%13,label:String((i*3)%13),description:'Open reports logged in this demo area.'}]));
+    const wardCoverage = {};
+    window.INISTMapWardData.features.forEach(({properties},index)=>{
+      const {lga,ward}=properties;
+      const value=30+((index*17+11)%71);
+      wardCoverage[lga] ||= {};
+      wardCoverage[lga][ward]={value,label:value+'%',description:'Illustrative service coverage for '+ward+'. Replace this sample with your own ward metric.'};
+    });
     const datasets = {coverage:{title:'Service coverage',label:'Coverage',data:coverage,colors:['#e6f2ee','#087f72']},agents:{title:'Field team activity',label:'Agents reporting',data:agents,colors:['#eaf0fb','#496dce']},incidents:{title:'Open reports by LGA',label:'Open reports',data:incidents,colors:['#fff0e9','#e46846']}};
     const mapOptions = (data, label, colors, compact=false, theme='light') => ({title:'Niger State',data,valueLabel:label,colors,compact,theme,showLegend:false,showSearch:false,showStats:false,wardDrilldown:true});
     const mainMap = new INISTMap('#main-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors),onFeatureClick:updateInsight});
-    const wardExplorer = new INISTMap('#ward-drilldown-map',{title:'Niger State ward explorer',data:coverage,valueLabel:'Coverage',colors:datasets.coverage.colors,showLabels:true,labelMode:'name',popover:true,popoverTrigger:'contextmenu',wardDrilldown:true});
+    const wardExplorer = new INISTMap('#ward-drilldown-map',{title:'Niger State ward coverage',data:coverage,wardData:wardCoverage,valueLabel:'Service coverage',colors:['#edf6f3','#8dc9b7','#087f72'],scaleType:'linear',showLegend:true,showLabels:true,labelMode:'name',popover:true,popoverTrigger:'contextmenu',wardDrilldown:true,onFeatureClick(feature){if(feature.level==='wards')console.log('Ward selected:',feature.name,'in',feature.lga,feature.value);}});
     wardExplorer.ready.then(map=>map?.openWardMap('Borgu'));
     new INISTMap('#hero-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors,true),showLabels:false});
     new INISTMap('#pin-map', {...mapOptions({},'Locations',['#e8f3f1','#087f72'],true),pins:[{x:497,y:335,label:'Bida operations hub',description:'Regional coordination point',color:'#ef7954'},{x:693,y:415,label:'Suleja field office',description:'Support and logistics',color:'#4b72d5'}],onReady(map){map.addPin({x:383,y:525,label:'Mokwa supply point',color:'#36a67f',onClick:()=>alert('Mokwa supply point selected')});}});

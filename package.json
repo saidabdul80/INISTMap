@@ -1,0 +1,73 @@
+{
+  "name": "@saidabdul80/inistmap",
+  "version": "1.0.1",
+  "description": "A dependency-free interactive Niger State SVG map for dashboards and browser applications.",
+  "keywords": [
+    "nigeria",
+    "niger-state",
+    "interactive-map",
+    "svg-map",
+    "dashboard",
+    "choropleth",
+    "wards",
+    "lga"
+  ],
+  "homepage": "https://github.com/saidabdul80/INISTMap#readme",
+  "bugs": {
+    "url": "https://github.com/saidabdul80/INISTMap/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saidabdul80/INISTMap.git"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "Said Abdulsalam",
+  "type": "commonjs",
+  "main": "./index.cjs",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.cjs",
+      "default": "./index.cjs"
+    },
+    "./style.css": "./inistmap.css",
+    "./inistmap.css": "./inistmap.css",
+    "./ward-data": {
+      "types": "./ward-data.d.ts",
+      "import": "./ward-data.mjs",
+      "require": "./ward-data.cjs"
+    },
+    "./assets/niger-wards.geojson": "./assets/niger-wards.geojson",
+    "./assets/niger-wards.js": "./assets/niger-wards.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "README.md",
+    "LICENSE.md",
+    "index.html",
+    "index.cjs",
+    "index.mjs",
+    "index.d.ts",
+    "ward-data.cjs",
+    "ward-data.mjs",
+    "ward-data.d.ts",
+    "inistmap.js",
+    "inistmap.css",
+    "assets/niger-wards.js",
+    "assets/niger-wards.geojson",
+    "assets/niger-wards.LICENSE"
+  ],
+  "sideEffects": [
+    "./inistmap.css",
+    "./assets/niger-wards.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

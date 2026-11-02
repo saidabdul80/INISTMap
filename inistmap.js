@@ -3,6 +3,7 @@
   'use strict';
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
+  const WARD_MAP_CACHE = new WeakMap();
   const BUILTIN_SVG = new TextDecoder().decode(Uint8Array.from(atob(
     'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2MzIgNTE2IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGFyaWEtbGFiZWw9Ik5pZ2VyIFN0YXRlIGxvY2FsIGdvdmVybm1lbnQgYXJlYXMiPjxnIGNsYXNzPSJpbmlzdG1hcC1yZWdpb25zIj48cGF0aCBpZD0ibmdqczciIGQ9Ik01MzMgMzYybDEgLTE1IDM4IC0xYzMsMiA1LDQgOCw2IDIsMiA1LDQgOCw3IDEsMiAzLDMgNSw0IDAsLTIgMCwtMiAxLC00IDEsLTYgLTEsLTExIC0yLC0xNiAwLC0yIDEsLTIgMywtNCAzLC0yIDQsLTIgNiwxIDEsMiAyLDQgNCwzIDEsMCAyLDAgMywtMSAzLC0xIDIsLTMgMiwtNiAwLC0zIC0yLC04IDMsLTggMiwwIDYsMSA1LC0zIC0zLC02IC0xMCwtMyAtOSwtOSAwLC02IDQsLTcgOCwtMTAgMSwtMSAzLC0yIDMsLTQgMCwwIDAsMCAwLDAgLTEsMiAtMywzIC01LDMgLTEsMCAtMiwxIC0yLDAgLTUsLTIgLTYsLTUgLTEyLC0zIC0zLDIgLTQsMiAtOCwzIC0yLDAgLTUsMSAtNywxIC00LDEgMCw0IDEsNSA1LDMgMCwzIC0zLDMgLTYsMSAtNiw1IC0xNCw0IC0yLC0xIC01LDIgLTcsMyAtMywzIC02LDYgLTksNCAtMSwtMSAtMiwtMSAtMywtMiAtMiwtMSAtOCwtMSAtMTAsLTFsMCAxYzAsMCAwLDAgMCwwIDEsMSAxLDIgMSwzIDEsMSAyLDIgMiwzIDEsNCAtMSwyIC0zLDMgLTEsMCAwLDQgMCw1IDAsMSAwLDIgLTEsMiAtMSwxIC0zLC0xIC00LC0yIC0xLC0yIC0yLC0zIC0zLC00bC0xIC0xIDAgMGMtMSwtMSAtMSwtMSAtMywtMWwwIDBjLTIsMCAtMywwIC0zLDEgMCwxIDEsNCAxLDUgMCwxIDEsMSAxLDIgMyw2IDIsOSAyLDE2IDAsNCAxLDQgMyw3eiIgLz48cGF0aCBpZD0ibmdqczZhIiBkPSJNNTQxIDMyM2wwIC0xYzIsMCA4LDAgMTAsMSAxLDEgMiwxIDMsMiAzLDIgNiwtMSA5LC00IDIsLTEgNSwtNCA3LC0zIDgsMSA4LC0zIDE0LC00IDMsMCA4LDAgMywtMyAtMSwtMSAtNSwtNCAtMSwtNSAyLDAgNSwtMSA3LC0xIDQsLTEgNSwtMSA4LC0zIDYsLTIgNywxIDEyLDMgMCwxIDEsMCAyLDAgMiwtMSA2LC0yIDYsLTUgMCwtNiAwLC00IDQsLTggMiwtMiA0LC0zIDQsLTcgLTEsLTYgLTcsLTIgLTgsLTcgLTEsLTQgNSwtOSAtNCwtMTAgLTMsLTEgLTcsLTIgLTcsLTUgMCwtMSAwLC0yIDAsLTIgLTIsMCAtNCwwIC02LDAgLTQsMCAtNiwtMiAtMTAsMSAtMiwyIC0zLDQgLTEsNiAzLDQgNywyIDcsOCAwLDQgLTIsOSAtNiw5IC0xLDAgLTUsMCAtNiwtMSAtNSwtMSAtMywtNSAtNywtNiAtMywtMSAtNiw2IC02LDggMCwzIC0xLDUgLTMsNyAtMiwzIC0yLDQgLTUsMiAtMiwtMiAtNCwwIC01LDIgLTEsMiAtMiwzIC01LDMgLTEsMCAtMiwwIC0zLDAgLTMsMCAtNCwwIC03LDEgLTMsLTIgLTQsLTMgLTUsLTUgLTEsMCAtMSwwIC0yLC0xIC02LC0yIC04LC0yIC0xMywyIC02LDQgLTQsMiAtOSwwIC0yLDAgLTYsMSAtNiwtMSAwLDAgMCwwIDEsLTEgLTIsMSAtMywxIC02LDEgLTIsMCAtNSwxIC03LDEgLTEsMCAtMywxIC01LDEgLTIsMSAtMywwIC00LDEgLTQsMSAtMywzIC0zLDcgMCw1IC0yLDYgLTUsMTAgMCwxIC0yLDMgLTMsNGwtMSAzIDAgMTEgNSAxMCAwIDBjMSwxIDMsMCA0LDAgMCwwIDAsMCAwLDBsMCAwYzIsMSAzLDIgNCw0bDEgMCAwIDBjMSwwIDEsMCAyLDAgMSwwIDEsMCAyLDAgMSwwIDMsMCA1LDAgMywwIDQsLTIgOCwwIDEsMSAyLDIgNCwybDIgLTFjMCwtMSAwLC0xIDEsLTEgMiwtMiA1LC00IDcsLTYgMCwwIDEsMCAxLDAgMCwtMSAwLC0xIC0xLC0yIDAsMCAtMSwtMiAtMSwtMiAwLC0xIDAsLTEgMCwtMiAwLC0xIDAsLTMgMCwtNCAwLC0xIDEsLTEgMSwtMiAxLC0xIDEsLTEgMiwtMiAxLC0xIDIsLTEgMiwtMSAxLDAgMiwtMSAyLC0xIDEsMCAyLC0xIDMsLTEgMSwwIDEsMCAyLDAgMSwwIDIsMCAyLC0xIDEsMCAyLC0xIDMsLTEgMSwwIDEsMCAxLDB6IiAvPjxwYXRoIGlkPSJuZ2pzMTIiIGQ9Ik01NTcgMzAwYzMsMCA0LC0xIDUsLTMgMSwtMiAzLC00IDUsLTIgMywyIDMsMSA1LC0yIDIsLTIgMywtNCAzLC03IDAsLTIgMywtOSA2LC04IDQsMSAyLDUgNyw2IDEsMSA1LDEgNiwxIDQsMCA2LC01IDYsLTkgMCwtNiAtNCwtNCAtNywtOCAtMiwtMiAtMSwtNCAxLC02IDQsLTMgNiwtMSAxMCwtMSAzLDAgNSwwIDgsLTEgNSwwIDEwLDAgMTEsLTUgMSwtNCAwLC0yIC0xLC02IDAsLTEgMCwtMyAwLC00IC0xLC00IC0xLC02IC0yLC05IDAsLTUgMCwtMTEgLTIsLTE1IC0yLC0zIC0xLC0yIC00LC0yIC00LC0xIC0zLC0xIC03LDAgLTIsMSAtNSwxIC03LC0xIDAsMCAtMSwwIC0xLDAgLTMsMSAtNiwwIC05LDEgLTMsMSAtOSwwIC0xMywtMSAtMiwwIDAsMCAtMiwwIC0yLC0yIC01LC0zIC04LC00IC00LC0yIC01LC0zIC05LC00IC0xLDAgLTIsMCAtMiwwIC00LC0xIC01LDEgLTgsMyAtMiwyIC0yLDMgLTIsNSAwLDMgLTEsMyAtMywzIC00LDAgLTMsNiAyLDcgMywwIDMsMCAyLDMgLTIsNCAtMyw0IC0zLDEwIDEsMiAxLDUgMSw4IDAsMyAwLDggMiwxMSAyLDMgMCw0IC0zLDYgLTMsMiAtMyw4IC0yLDEyIDAsNSAtMSw5IDAsMTQgMSwzIDEsNCAwLDQgMSwyIDIsMyA1LDUgMywtMSA0LC0xIDcsLTEgMSwwIDIsMCAzLDB6IiAvPjxwYXRoIGlkPSJuZ2pzMTQiIGQ9Ik00NDMgMjYwYzIsMCA0LDEgNywxIDUsMSAyMCwyIDI1LDEgNywtNCA0LC01IDksLTkgMiwtMSAyLDEgNSwyIDcsMiAxMywwIDE1LDggNCw5IDgsNiAxMiwxMiAyLDUgMiwxMSAwLDE1IC0xLDIgLTQsNiAtNCw2IDAsMiA0LDEgNiwxIDUsMiAzLDQgOSwwIDUsLTQgNywtNCAxMywtMiA0LDIgMywxIDIsLTMgLTEsLTUgMCwtOSAwLC0xNCAtMSwtNCAtMSwtMTAgMiwtMTIgMywtMiA1LC0zIDMsLTYgLTIsLTMgLTIsLTggLTIsLTExIDAsLTMgMCwtNiAtMSwtOCAwLC02IDEsLTYgMywtMTAgMSwtMyAxLC0zIC0yLC0zIC01LC0xIC02LC03IC0yLC03IDIsMCAzLDAgMywtMyAwLC0yIDAsLTMgMiwtNSAzLC0yIDQsLTQgOCwtMyAxLDAgMywwIDQsLTEgMCwtMyAtMTAsLTMgLTMsLTEwIDMsLTMgMywtMiA3LC00IDMsLTEgMiwtMiA0LC01IDQsLTUgNSwtMyAxMCwtNiAxLC0xIDUsLTMgNSwtNCAxLC0yIDIsLTQgMywtNyAwLC0yIC0yLC0zIC00LC00IC0yLC0xIC00LC0xIC02LC0zIC0yLC0xIC0zLC0xIC02LC0xIC0zLDAgLTYsLTIgLTUsLTYgMCwtMyAwLC0zIDEsLTUgMSwtMSAxLC0zIDIsLTUgMSwtMyAwLC0zIC0xLC02IC0xLC0yIC00LC04IC02LC05IC0xLDAgLTMsMCAtNCwwIC0zLC0xIC00LDIgLTYsMiAtMiwtMSAtMiwtMiAtMiwtMyAtMiwtNiAxLC0xMSAtMywtMTUgLTMsLTMgLTgsLTIgLTEyLC0yIDAsMCAtMSwwIC0yLDAgLTYsMiAwLDkgLTEsMTAgLTEsMiAtMywxIC01LDEgLTMsMCAtNSwtMiAtOSwwIC0yLDAgLTMsMSAtNSwyIC0yLDEgLTEwLDUgLTEzLDQgLTEsLTEgLTEsLTEgLTMsLTIgMCwxIDAsMSAwLDFsMCAwIDAgMCAwIDBjMCwwIDAsMCAwLDBsMCAwIDAgMCAwIDAgMCAxIDAgMGMtMSwxIC0xLDIgLTIsNGwwIDBjMCwwIDAsMSAwLDFsMCAwYzAsMCAwLDAgMCwwbDAgMGMwLDEgMCwxIDAsMWwwIDBjMCwwIDAsMCAtMSwwbDAgMGMwLDEgMCwxIDAsMWwwIDBjMCwwIDAsMCAwLDBsMCAwYzAsMCAwLDAgMCwxbDAgMGMwLDAgMCwwIDAsMGwwIDBjMCwwIDAsMCAwLDBsMCAwIDAgMGMwLDAgMCwwIDAsMWwwIDAgMCAwIDAgMGMwLDAgMCwwIDAsMGwwIDBjMCwwIDAsMSAwLDFsMCAwYzAsMCAwLDAgMCwwbDAgMCAwIDBjMCwwIDAsMCAwLDBsMCAxYzAsMCAwLDAgMCwwbDAgMGMwLDAgMCwwIDAsMGwwIDBjMCwwIDAsMSAwLDFsMCAwYzAsMCAwLDAgMCwwIDIsNyA0LDEyIC0xLDE5IC0xLDEgLTIsMiAtMywzbC0xIDFjLTEsMiAtNiw3IC04LDkgLTIsMSAtNCwyIC03LDQgLTQsNCAtNCw4IC01LDE0IDAsMiA3LDMgOSwzIDcsMSA5LDAgMTQsNiA0LDUgNSwxMSA2LDE3IDAsNiAzLDQgLTQsNSAtOCwxIC00LDEwIC02LDEzIC0xLDIgLTMsMyAtNSw0IC01LDEgLTExLC0xIC0xNSwtNCAtMiwtMiAtNCwtMyAtNywtNGwtMSAwYy0yLC0xIC00LC0xIC02LC0xIC0yLDAgLTQsMCAtNywwIC00LC0xIC02LDEgLTgsNCAwLDEgMCwxIDAsMSAxLDAgMiwtMSAzLC0xIDQsMSA0LDkgMywxMyAwLDQgLTEsNiAtMSw5bDAgMHptNTAgLTExOWMwLDAgMCwwIDAsMGwwIDB6bTAgMmMwLDAgMCwwIDAsMGwwIDB6IiAvPjxwYXRoIGlkPSJuZ2pzMTYiIGQ9Ik00NjIgMTQwYzIsLTIgNCwtMyA2LC01IDIsLTIgNCwtMyA2LC01bDEgLTFjNSwtNCA3LC00IDEzLC01IDQsLTIgNSwwIDcsMyA0LDYgLTMsOSAtMiwxOCAyLDcgNCwxMiAtMSwxOSAtMSwxIC0yLDIgLTMsM2wtMSAxYy0xLDIgLTYsNyAtOCw5IC0yLDEgLTQsMiAtNyw0IC00LDQgLTQsOCAtNSwxNCAwLDIgNywzIDksMyA3LDEgOSwwIDE0LDYgNCw1IDUsMTEgNiwxNyAwLDYgMyw0IC00LDUgLTgsMSAtNCwxMCAtNiwxMyAtMSwyIC0zLDMgLTUsNCAtNSwxIC0xMSwtMSAtMTUsLTQgLTIsLTIgLTQsLTMgLTcsLTRsLTEgMGMtMiwtMSAtNCwtMSAtNiwtMSAtMiwwIC00LDAgLTcsMCAtNCwtMSAtNiwxIC04LDQgMCwxIDAsMSAwLDEgLTEsMSAtMiwzIC0zLDUgLTYsNyAtOSw2IC0xNyw3IC0zLDAgLTUsMCAtOCwwIDAsMCAtMSwwIC0yLC0xIC0xLDAgLTEsMCAtMSwwIC0yLC0xIC00LC0yIC02LC0zIC0zLC0zIDAsLTQgLTEsLTggMCwtMiAtMSwtNCAtMSwtNiAyLC0xIDQsLTIgNSwtNCAzLC03IDQsLTYgNCwtMTQgMCwtMSAwLC0yIDEsLTRsMCAwYzIsMCAzLC0yIDMsLTQgMCwtNCAtMSwtNSAtMSwtOSAxLC0zIDEsLTYgMSwtOSAxLC01IDIsLTYgNCwtMTAgMSwtMyAwLC02IDAsLTEwIDAsLTMgLTIsLTUgLTIsLTkgMCwtMyAwLC0xMCAzLC0xMyAzLC0xIDQsLTEgNiwtMiAxLDAgMSwwIDEsMCA0LDQgNCwzIDksNiAzLDIgNCw1IDUsOCAxLDQgNCwzIDYsMSAxLC0xIDIsLTIgMywtMyAyLC0yIDMsLTQgNSwtNiAyLC0zIDQsLTYgNywtOSAxLC0xIDIsLTEgMywtMnoiIC8+PHBhdGggaWQ9Im5nanM1IiBkPSJNNDczIDQ1MmwwIDBjMiw3IDUsMTUgNywyMiAxLDIgMSwxIDIsMyAzLDQgNCwyIDcsNSAzLDIgNiw2IDksOCAxLDEgMSwxIDEsMSA0LDMgNSw3IDgsMTAgMiwzIDMsNSA2LDggMiwzIDQsNSA3LDcgNCwxIDYsLTIgNiwtNiAwLC0zIDEsLTUgMiwtOCAxLC0zIDIsLTEgNCwwIDQsMSAwLC01IDMsLTggMywtMiA2LC0yIDgsLTMgMiwtMiAyLC02IDMsLTkgLTMsLTEgLTQsMCAtNiwwIC00LC0yIC01LC05IC03LC0xMyAwLC0zIDEsLTQgMSwtNyAwLC0zIDAsLTUgMCwtOCAwLC0zIDAsLTYgMCwtOWwtMSAtNTVjMCwtNiAwLC0xMiAwLC0xOCAwLC0yIDEsLTggMCwtOSAtMiwtNCAtMywtMyAtMywtOCAwLC03IDEsLTEwIC0yLC0xNiAwLC0xIC0xLC0xIC0xLC0yIDAsLTEgLTEsLTQgLTEsLTUgMCwtMSAxLC0xIDMsLTFsMCAwYzIsMCAyLDAgMywxbDAgMCAxIDFjMSwxIDIsMiAzLDQgMSwxIDMsMyA0LDIgMSwwIDEsLTEgMSwtMiAwLC0xIC0xLC01IDAsLTUgMiwtMSA0LDEgMywtMyAwLC0xIC0xLC0yIC0yLC0zIDAsLTEgMCwtMiAtMSwtMyAwLC0xIDAsMCAtMSwwIC0xLDAgLTIsMSAtMywxIDAsMSAtMSwxIC0yLDEgLTEsMCAtMSwwIC0yLDAgLTEsMCAtMiwxIC0zLDEgMCwwIC0xLDEgLTIsMSAwLDAgLTEsMCAtMiwxIC0xLDEgLTEsMSAtMiwyIDAsMSAtMSwxIC0xLDIgMCwxIDAsMyAwLDQgMCwxIDAsMSAwLDIgMCwwIDEsMiAxLDIgMSwxIDEsMSAxLDIgMCwwIC0xLDAgLTEsMCAtMiwyIC01LDQgLTcsNiAtMSwwIC0xLDAgLTEsMWwtMiAxYy0yLDAgLTMsLTEgLTQsLTIgLTQsLTIgLTUsMCAtOCwwIC0yLDAgLTQsMCAtNSwwIC0xLDAgLTEsMCAtMiwwIC0xLDAgLTIsMCAtMywwIDIsMyAyLDcgMiwxMCAtMSw2IC0zLDYgMCwxMiAyLDQgMyw0IDMsOCAxLDYgNyw2IDQsMTUgLTEsMyAtMSwzIC0xLDcgMCwyIDEsNCAyLDUgMiw0IDMsNiAwLDkgLTIsMiAtMyw0IC01LDYgLTQsMyAtMywzIC02LDYgLTEsMSAtMSw0IDAsNiAwLDQgMiw1IDMsOSAwLDIgLTIsNSAtMyw2IC0zLDMgLTIsMyAtNCw2IC0xLDAgLTEsMiAtMiwyIC0yLDEgLTQsMSAtNiwwIC0zLC0xIC0yLC0zIC02LC0zeiIgLz48cGF0aCBpZD0ibmdqczI0IiBkPSJNNDY5IDQ0NmMyLDMgNCw2IDQsNiA0LDAgMywyIDYsMyAyLDEgNCwxIDYsMCAxLDAgMSwtMiAyLC0yIDIsLTMgMSwtMyA0LC02IDEsLTEgMywtNCAzLC02IC0xLC00IC0zLC01IC0zLC05IC0xLC0yIC0xLC01IDAsLTYgMywtMyAyLC0zIDYsLTYgMiwtMiAzLC00IDUsLTYgMywtMyAyLC01IDAsLTkgLTEsLTEgLTIsLTMgLTIsLTUgMCwtNCAwLC00IDEsLTcgMywtOSAtMywtOSAtNCwtMTUgMCwtNCAtMSwtNCAtMywtOCAtMywtNiAtMSwtNiAwLC0xMiAwLC01IC0xLC0xMSAtNiwtMTRsMCAwYzAsMCAwLDAgMCwwIC0xLDAgLTMsMSAtNCwwIC03LDAgLTEwLC0yIC0xNiwzIC01LDQgLTYsLTIgLTExLDcgLTEsMiAtMywzIC0zLDUgLTIsNSA5LDExIDEsMTQgLTMsMiAtNCwyIC01LDUgLTEsNSAtMSw3IDAsMTIgMSwyIDEsNCAyLDcgMSw0IDEsMyAwLDggLTEsNSAxLDQgNCw0IDQsMSA0LDUgMyw4IDAsNCAyLDkgNCwxMyA1LDUgNiw4IDYsMTUgMCwxIDAsMSAwLDF6IiAvPjxwYXRoIGlkPSJuZ2pzOSIgZD0iTTM4MyAzOTFjMCwwIDAsLTEgMSwtMSAzLC0zIDUsLTYgOSwtOSAyLC0yIDMsLTQgNSwtNSA1LC0yIDYsMCAxMCwwIDUsLTEgNywtOCA4LC0xMiAxLC01IDMsLTIgNSwwIDMsMyA2LDMgOCw1IDEsMCAxLC0xIDIsLTEgMiwtMSA0LC01IDUsLTcgMywtNyA1LC00IDgsLTggMSwtNCAtNSwtNyAtNywtOCAtNCwtMSAtNCwtMSAtNiwtMyAtNCwtMyAyLC00IDAsLTggLTIsLTIgLTIsLTQgLTMsLTcgMCwtMiAtMSwtMyAxLC01IDIsLTIgMywtMyA0LC02IDAsLTQgMCwtNCAyLC04IDIsLTIgMiwtNCA0LC00IDEsLTEgMiwtMiAyLC0zIDAsLTMgLTIsLTMgLTQsLTMgLTQsMCAtMywtMSAtNiwtMyAtMSwtMiAtNCwtNSAtNywtMyAtMywzIC0yLDEgLTYsMiAtNSwxIC0zLDIgLTksMSAtMywtMSAtOCwtMSAtMTEsMCAtNCwzIC00LDYgLTYsOSAwLDAgMCwxIC0xLDIgLTIsNSAtMyw5IC0yLDEzIDAsOSAtNCwxMSAtNiwxNCAtMiw2IC02LDQ2IC01LDUxIDAsMyAyLDUgNSw3eiIgLz48cGF0aCBpZD0ibmdqczQiIGQ9Ik00MjIgMzc4Yy03LDcgMiwxMCAzLDE0IDEsMSAxLDIgMSwzIDAsMiAtMSwyNSAtMSwyNSAxLDEgMiw1IDIsNSAzLDIgMTMsMyAxNyw0IDIsMCA1LDAgNywxIDMsMiA0LDMgNyw1IDUsMiA3LDcgMTEsMTEgMCwwIDAsMCAwLC0xIDAsLTcgLTEsLTEwIC02LC0xNSAtMiwtNCAtNCwtOSAtNCwtMTMgMSwtMyAxLC03IC0zLC04IC0zLDAgLTUsMSAtNCwtNCAxLC01IDEsLTQgMCwtOCAtMSwtMyAtMSwtNSAtMiwtNyAtMSwtNSAtMSwtNyAwLC0xMiAxLC0zIDIsLTMgNSwtNSA4LC0zIC0zLC05IC0xLC0xNCAwLC0yIDIsLTMgMywtNSA1LC05IDYsLTMgMTEsLTcgNiwtNSA5LC0zIDE2LC0zIDEsMSAzLDAgNCwwIDAsMCAtNCwtNCAtMywtNiAxLDAgMiwwIDIsLTMgMSwtNyAyLC04IC0xLC0xNiAwLC0xIC0xLC0zIC0yLC0zIC0zLDAgLTYsMSAtOSwxIC0zLDAgLTUsMCAtNywzIC0zLDMgLTQsMSAtOCwwIC0xLDAgLTIsMCAtNCwwIC0zLDAgLTUsMSAtNywwIC0yLDAgLTEsLTIgMCwtMyAyLC00IDIsLTUgLTEsLTkgLTIsLTIgLTUsLTMgLTgsLTQgLTMsMCAtMywyIC01LDQgLTIsNCAtMiw0IC0yLDggLTEsMyAtMiw0IC00LDYgLTIsMiAtMSwzIC0xLDUgMSwzIDEsNSAzLDcgMiw0IC00LDUgMCw4IDIsMiAyLDIgNiwzIDIsMSA4LDQgNyw4IC0zLDQgLTUsMSAtOCw4IC0xLDIgLTMsNiAtNSw3IC0xLDEgLTUsMSAtNiwyIDAsMCAxLDIgMSwzIDAsMyAtMiw0IC00LDV6IiAvPjxwYXRoIGlkPSJuZ2pzMyIgZD0iTTM3MyA0MjNjMiwzIDYsNCAxMCw0IDIsMCAxMywxIDE1LDAgNCwtMSAyLC0yIDcsLTIgMiwxIDQsLTEgNywtMSAzLDAgNSwwIDcsMCA0LDAgNiwxIDksMiAxLDAgMiwtMSAyLC0yIDEsLTIgMiwtNCA0LC01IC0zLC01IC0zLC01IC02LC0xMCAtMSwtMSAtMiwtMyAtMiwtNSAwLC01IDQsLTUgMSwtMTIgMCwtMSAtMywtNSAtMywtNiAwLC03IDEsLTYgNSwtMTEgMywtOSAtMywtNiAtOCwtMTEgLTIsLTIgLTQsLTUgLTUsMCAtMSw0IC0zLDExIC04LDEyIC00LDAgLTUsLTIgLTEwLDAgLTIsMSAtMywzIC01LDUgLTQsMyAtNiw2IC05LDkgLTEsMCAtMSwxIC0xLDFsMCAwYzEsMCA2LDYgNCw3IC0xLDIgLTIsMyAtNCw1IC0yLDMgLTQsNSAtNiw3IC0xLDEgLTIsMiAtMiwzIC0xLDIgLTEsNCAtMSw2IDAsMSAwLDQgLTEsNCAwLDAgMCwwIDAsMHoiIC8+PHBhdGggaWQ9Im5nanMyMyIgZD0iTTI2MCAxMDFjMywtNiA1LC04IC0xLC0xMyAwLC0xIC0zLC0yIC00LC0zIC0zLC0zIC01LC01IC0yLC05IDMsLTMgNiwtMiA2LC04IDAsLTMgLTEsLTggLTIsLTExIDAsLTEgMCwtMiAwLC0yIC0xLC0zIC0xLC0zIC0zLC01IDAsMCAwLDAgLTEsMCAtNCwyIC0zLC0xIC02LC00bDAgMGMtMiwtMiAtNSwtMiAtOCwtMiAtMSwwIC0zLDAgLTQsMCAtNiwwIC0xMCwtMyAtMTUsLTYgLTEsMCAtMiwwIC0zLC0xIC0yLC0xIC00LC0xIC03LC0yIC0xLDAgMCwtMSAtMSwtMmwwIDBjLTIsLTIgLTQsLTMgLTMsLTcgMCwtNCAzLC02IDYsLTggMSwwIDMsLTEgNCwtMSAyLC0xIDMsLTIgNSwtMyAzLC0yIDEyLC01IDE1LC02IDMsMCA1LC0xIDcsLTEgNSwtMSAxMCwtMyAxNSwtNCA0LC0xIDcsLTEgMTEsLTIgNCwtMSA4LC0xIDEyLC0xIDIsMCA0LDAgNSwwIDEsMCAyLDAgMywxIDUsMCA1LC0yIDEwLDFsMCAwYzEsMSAxLDEgMSwxIDYsNSA0LDEyIDQsMThsMSAxYzAsMCAwLDAgMCwxIDEsMyA2LDcgMTAsOCAzLDIgMywzIDMsNyAwLDQgMCw5IDAsMTMgLTIsMiAtNCw0IC02LDUgLTQsNSAtNCwxMiAtNiwxOCAtMiw0IC0yLDUgLTEsMTAgMSwyIDEsNCAxLDYgMCwzIC0yLDQgLTIsNyAtMSwtMSAtMSwtMSAtMSwtMSAtMSwwIC0xLDAgLTIsMCAtMSwwIC0xLDEgLTIsMSAtMSwxIC0yLDIgLTQsMyAtMiwyIC0yLC0xIC00LC0xIC0xLDEgLTIsMiAtMiwzIC0xLDEgLTMsNCAtNCw0IC0yLDAgLTQsLTEgLTYsLTIgLTEsMCAtMywtMSAtNCwtMiAtMywtMSAtNCwtMSAtNywwIC0zLDAgLTUsLTEgLTgsLTF6IiAvPjxwYXRoIGlkPSJuZ2pzMTciIGQ9Ik0zOTIgMjEwYzIsLTEgNywtMyA4LC00IDMsMCA2LDUgOSw1IDIsMCAzLC0yIDMsLTQgMCwtNCAtMSwtNSAtMSwtOSAxLC0zIDEsLTYgMSwtOSAxLC01IDIsLTYgNCwtMTAgMSwtMyAwLC02IDAsLTEwIDAsLTMgLTIsLTUgLTIsLTkgMCwtMyAwLC0xMCAzLC0xMyAzLC0xIDQsLTEgNiwtMiA2LC0zIDAsLTcgNiwtMTAgNCwtMiAzLC00IDIsLTggLTEsLTMgMCwtNSAxLC04IDMsLTcgLTMsLTggLTMsLTE0IDAsLTMgMSwtNCAxLC03IDAsLTYgMSwtNyA0LC0xMSAxLC0xIDQsLTYgNCwtOCAtMSwtNiAtNCwtOSAtNiwtMTQgLTEsLTIgLTIsLTMgLTMsLTUgLTEsLTQgLTUsLTggLTcsLTEybC0xIDBjLTEsLTIgLTEsLTMgLTMsLTQgLTIsLTQgLTIsLTUgLTYsLTggLTYsLTQgLTgsMCAtMTMsNCAwLDEgLTEsMSAtMiwyIC0xLDEgLTIsMyAtMyw0IC0zLDQgLTQsMiAtOCwyIC02LDEgLTgsMyAtMTMsNSAtNCwxIC04LDMgLTEzLDUgLTMsMSAtNiwzIC05LDQgLTQsMiAtOCwxIC0xMiwxIC0zLDAgLTUsMCAtOCwwIC02LDEgLTEwLDIgLTEzLC00IC0yLC0zIDEsLTUgMCwtOCAtMiwyIC00LDQgLTYsNSAtNCw1IC00LDEyIC02LDE4IC0yLDQgLTIsNSAtMSwxMCAxLDIgMSw0IDEsNiAtMSwzIC0yLDUgLTMsOWwwIDBjLTEsNSAtMiwxMCAtMywxNWw0IDVjMCwtMSAwLC0yIDAsLTQgMCwtMSAwLC0xIDAsLTIgMCwtMSAwLC0yIDAsLTQgMywtMSA1LC0yIDksLTIgNywtMSA3LDAgMTQsMiAzLDEgMywwIDUsLTEgMiwtMiA0LC00IDYsLTIgMiwyIDQsNCA1LDcgMCwxIDIsNCAyLDYgMSwzIDEsNSAzLDggMiwyIDMsMyA1LDUgMyw0IDIsOCAyLDE0IDAsMyAwLDUgMCw4IDAsNSAyLDYgMywxMCAxLDUgMSwxMCAzLDE0IDEsNCAxLDcgMiwxMCAwLDAgLTMsMSAtNSwzbDUgOGMwLDAgMjksMTAgMjksMTF6IiAvPjxwYXRoIGlkPSJuZ2pzMjEiIGQ9Ik00MyAzNGMxOCw5IDI4LDE3IDQ2LDIxbDQ5IC0xYzIsMyA1LDEyIDcsMTQgMSwwIC0xLDE5IDMsMjggNCw5IC04LDM2IC03LDM2bDI5IDIgMCAxYy01LDcgLTcsMTMgLTYsMTkgMCw2IDAsMTIgNSwxNiA3LDQgNyw5IDQsMTggLTMsMyAtNCw5IC0xLDE0IDMsNSA2LDkgNSwxOCAtMiw0IC0xLDggMiwxNCA4LDIxIDksMzEgMSw0MyAtMSwyIC0yLDUgLTQsNyAtNiw2IC04LDEzIDAsMjMgMiwxIDIsMyAyLDUgLTMzLDUgLTI1LDUgLTI1LC0zMiAyLC03IDEsLTEyIC01LC0xMSAtMywxIC02LC0yIC0xMCwtNSAtMTYsLTIyIC0zMywtNDIgLTUxLC02MSAtNSwtNyAtMTMsLTggLTI0LC02IC0xMCwtMSAtMTksMCAtMjksMGwtNSAxIDEgLThjLTExLC01IC0xOCwtMTEgLTEyLC0yNCAyLC0zIDMsLTYgNCwtOCAxLC01IDAsLTcgNywtMTEgNCwtMyA2LDAgOSwyIDMsMiA4LDMgMTAsNCAzLC0xNSA0LC0yMSAxMSwtMzAgLTEsLTUgLTIsLTEyIC0yLC0xNyAtNiwtMyAtMTAsLTggLTEyLC0xNSAtNSwtMTAgLTQsLTggMCwtMTcgLTEsLTYgMCwtMTkgLTQsLTIwIC0yLC0yIC01LDEgLTQsLTQgMCwtMTYgLTIsLTE2IDYsLTE2eiIgLz48cGF0aCBpZD0ibmdqczE5IiBkPSJNMTM4IDU0YzIxLC02IDMzLDEgNTQsMTYgMjIsMSAxNCwxNCAxMSwyOCAtMSw4IDAsMTUgLTMsMTZsLTUgNCAtNSA1Yy02LDUgLTEyLDQgLTE4LDExbC0zMSAtMmMtMSwwIDExLC0yNyA3LC0zNiAtNCwtOSAtMiwtMjggLTMsLTI4IC0yLC0yIC01LC0xMiAtNywtMTR6IiAvPjxwYXRoIGlkPSJuZ2pzMSIgZD0iTTE4OCAyODhjMSwtMiA0LC00IDYsLTIgMSwxIDIsMyAzLDQgMyw0IDYsNSAxMCw1IDMsMCA2LC0xIDgsMiAxLDAgMSwxIDEsMiAxLDEgMSwyIDEsMiAwLDYgMCw3IC0zLDEzIC0xLDMgMCw2IDMsOCAxLDEgNCwyIDYsMyAyLDEgMiwxIDUsMSA0LDEgNiwyIDExLDAgMCwtMSAxLC0xIDIsLTEgMywtMiA1LC0zIDgsLTUgMywtMSA1LC00IDksLTUgMiwtMiA0LC0yIDcsLTMgMiwtMSA0LC0yIDcsLTMgMywwIDUsLTEgOCwtMyA0LC0yIDYsLTIgOSwtNiAwLDAgMSwtMSAxLC0xbDAgMCAwIDAgMCAwIDAgMCAwIDAgMSAwIDAgMCAwIC0xIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAtMSAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMSAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgLTEgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAxIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwYzAsMCA1LDUgNSw2IDIsMSA0LDIgNSw0bDAgMGMzLDMgOCw0IDksOCAwLDEgMCwzIC0xLDQgLTIsNSAtNCw3IDAsMTIgMCwwIDEsMSAxLDEgMiwyIDMsMyA0LDUgNCw0IDksMSA4LDEwIDAsMyAtMSw2IC0yLDkgLTEsMyAtMSw2IDIsOGwwIDAgMCAwYy0yLDEgLTUsMSAtOCwyIC0yLDIgLTQsMyAtNiw1IC0yLDEgLTMsMyAtNCw1IDIsMSA1LC01IDEzLDEgMiwwIDMsMSA0LDIgMiwyIDIsNCA0LDcgMSwyIDIsNCA0LDUgMiwwIDQsMSA2LDIgMiwxIDIsMSA1LDIgMywwIDMsMSA1LDNsMCAwYzYsNSA5LC0xIDE1LDVsMCAwIDEgMWMzLDEgNiwxIDgsLTIgMiwtNCAtMSwtMTEgLTEsLTE1IDAsLTEgLTEsLTIgLTEsLTNsMSAwYzEsLTMgMiwtNiAzLC0xMCAxLC0zIDIsLTYgMywtOSAxLC0yIDEsLTcgMSwtOSAwLC0xIDAsLTIgMCwtMyAtMSwtNSAwLC0xMSAyLC0xNiAxLC0yIDIsLTQgMiwtNyAxLC0zIDIsLTUgMywtOCAxLC0zIDIsLTYgMywtOGwwIDAgMCAwYzAsLTEgMiwtNiAxLC02IDAsLTIgNSwtNSAzLC0xIC0yLDUgLTMsOSAtMiwxMyAwLDkgLTQsMTEgLTYsMTQgLTIsNyAtNCwxNyAtMywyMiAzLDkgLTUsMTMgLTIsMjkgMCwzIDIsNSA1LDcgMSwwIDYsNiA0LDcgLTEsMiAtMiwzIC00LDUgLTIsMyAtNCw1IC02LDcgLTEsMSAtMiwyIC0yLDMgLTEsMiAtMSw0IC0xLDYgMCwxIDAsNCAtMSw0IC0xLDEgLTcsLTYgLTksLTcgLTEsLTIgLTQsLTQgLTYsLTVsMCAwYy00LC0yIC0xMCwtOCAtMTMsLTggLTUsMSAtMTYsLTEyIC0xOSwtMTIgLTQsLTEgLTIxLC04IC0yNCwtNyAtMSwwIC04LDMgLTksMyAtNiwtMSAtOCwwIC0xMiwtNSAtMiwtMiAtMywtMyAtNCwtNSAtMywtMyAtNSwtNiAtOCwtOCAwLC0xIC0xLC0xIC0xLC0yIC01LC01IC03LC00IC0xMywtN2wtMSAwYy01LC0yIC0xLC00IC05LC00IC0xLDAgLTIsMCAtMywwIC0xLDAgLTQsMiAtNiwzIC0yLDEgLTUsMSAtNywyIC02LDMgLTEzLDYgLTIwLDMgLTMsLTIgLTMsLTUgLTMsLTggMCwtMSAwLC0yIDAsLTIgMCwtMSAwLC0yIDAsLTMgMCwtNCAtMiwtNyAtNiwtOSAtMywtMSAtNiwwIC05LC0yIC0zLC0yIC00LC00IC03LC02bDAgMGMtMywtMiAtMywtNSAtNCwtOCAwLC0yIDAsLTQgMSwtNiAwLC01IC0zLC04IC00LC03IDEsMCAxLDAgMiwwIDIsMCAzLC0xIDQsLTQgMSwtMyAyLC03IDIsLTEwIDAsLTQgMCwtNyAzLC0xMXoiIC8+PHBhdGggaWQ9Im5nanMxMCIgZD0iTTM3MiAzNzhjMCwtMSAxLC0zIDEsLTUgMSwtMyAyLC02IDMsLTkgMSwtMiAxLC03IDEsLTkgMCwtMSAwLC0yIDAsLTMgLTEsLTUgMCwtMTEgMiwtMTYgMSwtMiAyLC00IDIsLTcgMSwtMyAyLC01IDMsLTggMSwtMyAyLC02IDMsLTggMCwtMSAyLC02IDEsLTYgMCwwIC0yLDAgLTIsMGwtMSAtMWMtMSwwIC0xLDAgLTIsLTEgLTMsLTEgLTQsLTMgLTcsLTEgLTIsMSAtMiwyIC01LDJsMCAwIC0xIDBjLTEsMCAtMiwtMSAtMywtMiAtMiwtMyAtMywtNyAtNCwtMTAgLTEsLTEgLTEsLTIgLTIsLTMgLTEsLTMgLTIsLTUgLTQsLTcgLTQsLTMgLTUsLTMgLTgsLTUgLTMsLTIgLTUsLTQgLTgsLTZsMCAwIDAgMWMtMywtMiAtNSwtNSAtOCwtNyAtMywtMSAtNCwtMyAtNiwtNSAtMiwtMSAtNSwwIC03LDEgLTIsMCAtNCwxIC02LDEgLTMsMSAtNiwxIC05LDIgLTMsMSAtNSwxIC04LDEgLTUsMSAtNCw3IC00LDExIDAsMyAwLDIgLTEsNSAtMSw0IC0yLDUgLTEsMTAgMCwxIDEsMyAwLDRsMCAxYzEsLTEgMSwtMiAyLC0yIDAsMCA1LDUgNSw2IDIsMSA0LDIgNSw0bDAgMGMzLDMgOCw0IDksOCAwLDEgMCwzIC0xLDQgLTIsNSAtNCw3IDAsMTIgMCwwIDEsMSAxLDEgMiwyIDMsMyA0LDUgNCw0IDksMSA4LDEwIDAsMyAtMSw2IC0yLDkgLTEsMyAtMSw2IDIsOGwwIDBjMSwwIDIsMCAzLDAgMiwwIDQsMCA2LC0xIDIsMCA1LC0yIDcsLTMgMiwtMiA0LC0zIDcsLTQgNywtMyA0LDEgNiw1IDIsMyA1LDMgOSwzIDgsMSAyLDUgMywxMCAxLDEgMiwyIDMsMyAyLDEgMywyIDQsMnoiIC8+PHBhdGggaWQ9Im5nanMyIiBkPSJNMzMxIDM5MGMyLDAgNCwxIDYsMiAyLDEgMiwxIDUsMiAzLDAgMywxIDUsM2wwIDBjNiw1IDksLTEgMTUsNWwwIDAgMSAxYzEsMSA1LDAgNywwIDIsLTEgNCwtMyA2LC00bDEgMGMzLC0yIDMsLTIgMywtNiAwLC0xIC0xLC0xIC0xLC0yIC00LC00IC00LC00IC02LC0xMGwwIDBjLTEsLTMgLTIsLTMgLTUsLTUgLTEsLTEgLTIsLTIgLTMsLTMgLTEsLTUgNSwtOSAtMywtMTAgLTQsMCAtNywwIC05LC0zIC0yLC00IDEsLTggLTYsLTUgLTMsMSAtNSwyIC03LDQgLTIsMSAtNSwzIC03LDMgLTIsMSAtNCwxIC02LDEgLTMsMCAtOCwxIC0xMSwyIC0yLDIgLTQsMyAtNiw1IC0yLDEgLTMsMyAtNCw1IDIsMSA1LC01IDEzLDEgMiwwIDMsMSA0LDIgMiwyIDIsNCA0LDcgMSwyIDIsNCA0LDV6IiAvPjxwYXRoIGlkPSJuZ2pzMjAiIGQ9Ik0yOTEgMjk4bDAgLTFjMSwtMSAwLC0zIDAsLTQgLTEsLTUgMCwtNiAxLC0xMCAxLC0zIDEsLTIgMSwtNSAwLC00IC0xLC0xMCA0LC0xMSAzLDAgNSwwIDgsLTEgMywtMSA2LC0xIDksLTIgMiwwIDQsLTEgNiwtMSAyLC0xIDUsLTIgNywtMSAyLDIgMyw0IDYsNSAzLDIgNSw1IDgsNyAwLC0zIC0xLC02IC0yLC04IDQsLTEgNiwwIDEwLDBsMCAwYzUsLTEgMTMsLTMgMTgsLTEgMSwxIDYsMyA3LDMgMywtMSA1LC01IDUsLTggMSwtMiAyLC00IDMsLTYgMSwtMiAyLC0zIDMsLTUgMSwtNCA0LC04IDYsLTExIDMsLTQgNCwtMyA4LC01IDIsLTEgNCwtMiA1LC00IDMsLTcgNCwtNiA0LC0xNCAwLC0yIDAsLTIgMSwtNCAtNSwtMyAtNywtNiAtMTEsLTkgLTMsLTMgLTMsLTMgLTYsLTQgLTQsLTIgLTgsLTUgLTEyLC03IC0yLC0yIC01LC00IC04LC02IC0zLC0xIC0xMCwtMyAtMTQsLTIgLTEsMSAtMywxIC01LDEgLTIsMSAtMywxIC02LDEgLTYsLTEgLTcsLTIgLTEzLDAgLTMsMSAtNCwyIC03LDIgLTEsMCAtMiwxIC0zLDEgLTQsMCAtNiwyIC05LC0xIDAsLTEgLTMsLTUgLTMsLTUgLTcsLTUgLTYsLTQgLTEyLC0yIC01LDIgLTgsLTEgLTEzLC0yIC01LDAgLTUsLTEgLTksLTMgLTIsLTEgLTQsLTEgLTYsMCAwLDAgLTEsMCAtMSwxIC0xLDAgLTEsMSAtMiwxIC01LDQgLTgsNyAtMTQsOSAtNywxIC0xNCwyIC0xOSw2IC00LDQgLTQsMTAgLTUsMTcgLTEsNiAxLDIzIC0xMCwxNmwwIDBjLTgsLTQgLTEwLC03IC0xOSwxIC0zLDUgLTExLDUgLTE3LDI5bDAgLTFjMSw5IDAsMTYgLTUsMjMgLTEsMiAtMiw1IC00LDcgLTYsNiAtOCwxMyAwLDIzIDIsMSAyLDMgMiw1bC0xIDEgMSAwYzAsMCAxLDAgMSwwIDIsMCAzLC0xIDQsLTQgMSwtMyAyLC03IDIsLTEwIDAsLTQgMCwtNyAzLC0xMSAxLC0yIDQsLTQgNiwtMiAxLDEgMiwzIDMsNCAzLDQgNiw1IDEwLDUgMywwIDYsLTEgOCwyIDEsMCAxLDEgMSwyIDEsMSAxLDIgMSwyIDAsNiAwLDcgLTMsMTMgLTEsMyAwLDYgMyw4IDEsMSA0LDIgNiwzIDIsMSAyLDEgNSwxIDQsMSA2LDIgMTEsMCAwLC0xIDEsLTEgMiwtMSAzLC0yIDUsLTMgOCwtNSAzLC0xIDUsLTQgOSwtNSAyLC0yIDQsLTIgNywtMyAyLC0xIDQsLTIgNywtMyAzLDAgNSwtMSA4LC0zIDQsLTIgNiwtMiA5LC02IDAsMCAxLC0xIDIsLTJ6bS0xMTMgMTVsMCAwIDEgMGMtMSwwIC0xLDAgLTEsMHoiIC8+PHBhdGggaWQ9Im5nanMxOCIgZD0iTTIxNiAxMjljMSwtNSAxLC00IDAsLTggMCwtMiAtMSwtOCAwLC0xMCAxLC0xIDQsLTIgNiwtMyA2LC0yIDcsMiAxMywybDEgMCAwIDBjMywtMSA0LC0yIDYsLTQgMywtMSA1LC0yIDgsLTMgMiwtMSA0LC0yIDYsLTIgNSwtMSA3LDEgMTIsMSAzLC0xIDQsLTEgNywwIDEsMSAzLDIgNCwyIDIsMSA0LDIgNiwyIDEsMCAzLC0zIDQsLTQgMCwtMSAxLC0yIDIsLTMgMiwwIDIsMyA0LDEgMiwtMSAzLC0yIDQsLTMgMSwwIDEsLTEgMiwtMSAxLDAgMSwwIDIsMCAxLDAgMSw0IDEsNiAwLDEgMCwyIDAsMyAwLDQgMCw1IDAsOCAwLDEgMCwxIDAsMiAwLDUgLTEsNiAtNCw5IC0xLDIgLTIsMyAtMiw1IC0xLDIgLTEsMyAtMSw1bDAgMGMwLDAgMSwyIDEsMyAxLDUgMSw1IDQsMTEgMywzIDAsNSAwLDkgLTEsMiAtMiwyIC00LDMgLTUsMiAtNSwxIC0xMCwxIC0yLDAgLTQsMCAtNiwxbDAgMWMtMiwxIC0zLDIgLTQsNCAtMiwyIC01LDcgLTcsOSAtMSwwIC0xLDEgLTIsMSAtNSw0IC04LDcgLTE0LDkgLTcsMSAtMTQsMiAtMTksNiAtNCw0IC00LDEwIC01LDE3IC0xLDYgMSwyMyAtMTAsMTZsMCAwYy04LC00IC0xMCwtNyAtMTksMSAtMyw1IC0xMSw1IC0xNywyOSAtMTMsLTkgLTE1LC0yNCAtMTUsLTMzbDAgLTE5IDE3IDEgMyAtMTZjMCwtMiAxMiwtMiAxNywtNSA0LC01IDYsMiAxNSwtNSA3LC01IDksLTcgNywtMTcgLTEsLTEgLTEsLTIgLTEsLTMgLTEsLTIgLTMsLTQgLTUsLTUgLTIsLTIgLTUsLTUgLTcsLTggMCwtMSAtMSwtMiAtMSwtMyAwLC0yIDEsLTUgMSwtNyAwLC0yIDAsLTQgMCwtNnoiIC8+PHBhdGggaWQ9Im5nanMyMiIgZD0iTTM2MiAxODNjMCwtMiAtMSwtMyAtMSwtNSAtMiwtNCAtMiwtOSAtMywtMTQgLTEsLTQgLTMsLTUgLTMsLTEwIDAsLTMgMCwtNSAwLC04IDAsLTYgMSwtMTAgLTIsLTE0IC0yLC0yIC0zLC0zIC01LC01IC0yLC0zIC0yLC01IC0zLC04IDAsLTIgLTIsLTUgLTIsLTYgLTEsLTMgLTMsLTUgLTUsLTcgLTIsLTIgLTQsMCAtNiwyIC0yLDEgLTIsMiAtNSwxIC03LC0yIC03LC0zIC0xNCwtMiAtNCwwIC02LDEgLTksMiAwLDIgMCwzIDAsNCAwLDEgMCwxIDAsMiAwLDUgLTEsNiAtNCw5IC0xLDIgLTIsMyAtMiw1IC0xLDIgLTEsMyAtMSw1bDAgMGMwLDAgMSwyIDEsMyAxLDUgMSw1IDQsMTEgMywzIDAsNSAwLDkgLTEsMiAtMiwyIC00LDMgLTUsMiAtNSwxIC0xMCwxIC0yLDAgLTQsMCAtNiwxbDAgMWMtMiwxIC0zLDIgLTQsNCAtMiwyIC00LDUgLTYsOCAyLC0xIDQsLTEgNiwwIDQsMiA0LDMgOSwzIDUsMSA4LDQgMTMsMiA2LC0yIDUsLTMgMTIsMiAwLDAgMyw0IDMsNSAzLDMgNSwxIDksMSAxLDAgMiwtMSAzLC0xIDMsMCA0LC0xIDcsLTIgNiwtMiA3LC0xIDEzLDAgMywwIDQsMCA2LC0xIDIsMCA0LDAgNSwtMSAxLDAgMywwIDQsMHoiIC8+PHBhdGggaWQ9Im5nanMxNSIgZD0iTTM4NyAzMTJsMSAwYzEsLTMgNCwtOCA0LC04IDIsLTMgMiwtNiA2LC05IDMsLTEgOCwtMSAxMSwwIDYsMSA0LDAgOSwtMSA0LC0xIDMsMSA2LC0yIDMsLTIgNiwxIDcsMyAzLDIgMiwzIDYsMyAxLDAgNCwwIDQsMiAyLC0xIDIsLTIgMiwtNSAtMiwtNCAtNCwtMyAtNSwtOSAwLC0zIC0yLC05IDEsLTEyIDMsLTQgNCwtNiA0LC0xMiAtMSwtNSAxLC03IDEsLTExIDEsLTQgMSwtMTIgLTMsLTEzIC0zLDAgLTUsNCAtNiw2IC02LDcgLTksNiAtMTcsNyAtMywwIC01LDAgLTgsMCAtMiwwIC02LC0zIC05LC00IC0zLC0zIDAsLTQgLTEsLTggMCwtMiAtMSwtNCAtMSwtNmwwIDBjLTQsMiAtNSwxIC04LDUgLTIsMyAtNSw3IC02LDExIC0xLDIgLTIsMyAtMyw1IC0xLDIgLTIsNCAtMyw2IDAsMyAtMiw3IC01LDggLTEsMCAtNiwtMiAtNywtMyAtNSwtMiAtMTMsMCAtMTgsMWwwIDBjLTQsMCAtNiwtMSAtMTAsMCAxLDIgMSw1IDIsN2wwIDBjMywyIDUsNCA4LDYgMywyIDQsMiA4LDUgMiwyIDMsNCA0LDcgMSwxIDEsMiAyLDMgMSwzIDIsNyA0LDEwIDEsMSAyLDIgMywybDEgMCAwIDBjMywwIDMsLTEgNSwtMiAzLC0yIDQsMCA3LDEgMSwxIDEsMSAyLDFsMSAxYzAsMCAyLDAgMiwwIDAsMCAtMSw0IC0xLDV6IiAvPjxwYXRoIGlkPSJuZ2pzMTEiIGQ9Ik01MTMgMjk1Yy0yLDEgLTMsMSAtNiwxIC0yLDAgLTUsMSAtNywxIC0xLDAgLTMsMSAtNSwxIC0yLDEgLTMsMCAtNCwxIC00LDEgLTMsMyAtMyw3IDAsNSAtMiw2IC00LDEwIDAsMCAwLDAgMCwwIC0zLDAgLTYsMSAtOSwxIC0zLDAgLTUsMCAtNywzIC0zLDMgLTQsMSAtOCwwIC0xLDAgLTIsMCAtNCwwIC0zLDAgLTUsMSAtNywwIC0yLDAgLTEsLTIgMCwtMyAyLC00IDIsLTUgLTEsLTkgLTIsLTIgLTUsLTMgLTgsLTQgLTEsMCAtMSwwIC0xLDAgMSwtMSAyLC0yIDIsLTMgMCwtMSAwLC0xIDAsLTFsMCAwYzIsLTEgMiwtMiAyLC01IC0yLC00IC00LC0zIC01LC05IDAsLTMgLTIsLTkgMSwtMTIgMywtNCA0LC02IDQsLTEyIDAsMCAwLC0xIDAsLTIgMiwwIDQsMSA3LDEgNSwxIDIwLDIgMjUsMSA3LC00IDQsLTUgOSwtOSAyLC0xIDIsMSA1LDIgNywyIDEzLDAgMTUsOCA0LDkgOCw2IDEyLDEyIDIsNSAyLDExIDAsMTUgLTEsMSAtMiwzIC0zLDV6IiAvPjxwYXRoIGlkPSJuZ2pzMTMiIGQ9Ik00ODYgMjg1YzIsLTQgMiwtMyAzLC03IDEsLTQgMywtNyA3LC03IDcsLTEgMTAsNSAxMywxMCAyLDIgMyw1IDEsNyAtMiwyIC04LC0xIC0xMiwwIC00LDEgLTgsNCAtMTIsMSAtMiwtMSAtMiwtMyAwLC00eiIgLz48cGF0aCBpZD0ibmdqczI2IiBkPSJNNjAwIDMzNWMwLDEgMCwxIDAsMmwzIDJjMCwzIDAsNiAxLDggMCw1IDAsMTAgMSwxNSAwLDAgLTEsMSAtMSwyIDAsLTEgMCwtMSAxLC0yIDMsLTQgNiwtNyA4LC0xMSAzLC01IDYsLTggOSwtMTIgMywtNCAzLC01IC0yLC00IC00LDEgLTYsMiAtNSwtNCAxLC0xIDEsLTIgMSwtMyAtMSwtMyAtMSwtOCAtNiwtNCAtMiwyIC0zLDMgLTUsNSAtMSwwIC0xLDAgLTIsMSAtMiwxIC0xLDAgLTIsMiAwLDEgLTEsMiAtMSwzeiIgLz48cGF0aCBpZD0ibmdqczI1IiBkPSJNNjAzIDMzOWwtNyAtNSAtOCA5YzEsNCAxLDQgLTEsOCAtMyw1IDEsOCA1LDExIDMsMyA4LDEwIDExLDQgMCwtMSAyLC00IDIsLTQgLTEsLTUgLTEsLTEwIC0xLC0xNSAtMSwtMiAtMSwtNSAtMSwtOHoiIC8+PC9nPjxnIGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWxzIj48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAtMjQ5Ljc4OSAzMy41MTU3KSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPkJPUkdVIEwuRy5BPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAtNjUuMjYyOCAtMTA5LjkwMykiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5SSUpBVTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgLTEzMi4zMTggLTQ5LjIyNTkpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzMTYiIHk9IjEzOCI+QUdXQVJBPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAtMTMyLjMxOCAtNDkuMjI1OSkiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjMzMCIgeT0iMTU2Ij5MLkcuQTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgNjcuNDY2MiAtNTkuMjU0NykiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5NQVJJR0E8L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDExMi4wNjggNTkuODczNCkiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5SQUZJPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAyMzYuNzc1IDE5OS45ODMpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzNTAiIHk9IjEzOCI+R1VSQVJBPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAyNzMuMzE1IDI0MC44MDIpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzNTAiIHk9IjEzOCI+U1VMRUpBPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSA3NS42NjE2IDI4Mi43MDQpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzNTAiIHk9IjEzOCI+TEFWVU48L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDE4NS45ODQgMzIxLjI5NykiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5MQVBBSTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgMTU1LjA5NCAyNzEuNjMyKSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPkFHQUk8L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDEyNS4zMDcgMjA0LjMxNikiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5LQVRDSEE8L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDE5NS4zMzYgNDIuMTIyNikiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5TSElST1JPPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAyNDYuNjYxIDExMS42MDUpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzNTAiIHk9IjEzOCI+TVVZQTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgMTcuMDUyNyAyMDAuMDIyKSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPkdCQUtPPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAyNC42MDM0IDI1MS44NTQpIj48dGV4dCBjbGFzcz0iaW5pc3RtYXAtc291cmNlLWxhYmVsIiB4PSIzNTAiIHk9IjEzOCI+RURBVEk8L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIC0xMDIuNSAxMS40NTE0KSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPk1BR0FNQTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgLTYyLjI0MTEgOTQuMTUyOSkiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5NQVNIRUdVPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAtODIuMDk5MSAyMDYuNjYyKSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPk1PS1dBPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAtMTguMTEyMyA5LjIyNDg0KSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPktPTlRBR09SQTwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgNTQuNzAwNSAxNDIuNjM1KSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPldVU0hJU0hJPC90ZXh0PjwvZz48ZyB0cmFuc2Zvcm09Im1hdHJpeCgwLjg4Nzg0NiAwIDAgMSAxMjYuNzMgMTUxLjQ0MSkiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5CT1NTTzwvdGV4dD48L2c+PGcgdHJhbnNmb3JtPSJtYXRyaXgoMC44ODc4NDYgMCAwIDEgMTkxLjczMiAxODYuMDg4KSI+PHRleHQgY2xhc3M9ImluaXN0bWFwLXNvdXJjZS1sYWJlbCIgeD0iMzUwIiB5PSIxMzgiPlBBSUtPUk88L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDE0My4yOTQgMTI2LjA2NykiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5DSEFOQ0hBR0E8L3RleHQ+PC9nPjxnIHRyYW5zZm9ybT0ibWF0cml4KDAuODg3ODQ2IDAgMCAxIDg2LjY5MzcgMTkzLjI2NCkiPjx0ZXh0IGNsYXNzPSJpbmlzdG1hcC1zb3VyY2UtbGFiZWwiIHg9IjM1MCIgeT0iMTM4Ij5CSURBPC90ZXh0PjwvZz48L2c+PC9zdmc+Cg=='
   ), (character) => character.charCodeAt(0)));
@@ -32,7 +33,7 @@
     showControls: true,
     wheelZoom: true,
     wheelSensitivity: 20,
-    minZoom: 1,
+    minZoom: 0,
     maxZoom: 8,
     panOverscroll: 0.12,
     extrusionDepth: 0,
@@ -283,7 +284,6 @@
           const featureId = target.getAttribute('data-inistmap-id') || target.getAttribute('data-feature-id');
           const feature = this.features.find((item) => item.id === featureId);
           if (!feature) return;
-          this.select(feature.id);
           this._showPopover(feature);
         }, { signal });
       }
@@ -332,8 +332,11 @@
 
     _constrainViewBox(box) {
       const base = this.baseViewBox;
-      const minWidth = base.width / Math.max(1, Number(this.options.maxZoom) || 8);
-      const maxWidth = base.width / Math.max(1, Number(this.options.minZoom) || 1);
+      const maxZoom = Math.max(1, Number(this.options.maxZoom) || 8);
+      const configuredMinZoom = Number(this.options.minZoom);
+      const minZoom = Number.isFinite(configuredMinZoom) && configuredMinZoom >= 0 ? configuredMinZoom : 1;
+      const minWidth = base.width / maxZoom;
+      const maxWidth = minZoom === 0 ? base.width * 1000 : base.width / Math.min(minZoom, maxZoom);
       const width = Math.max(minWidth, Math.min(maxWidth, box.width));
       const height = width * base.height / base.width;
       const overscroll = Math.max(0, Number(this.options.panOverscroll) || 0);
@@ -504,21 +507,179 @@
       return blob;
     }
 
+    _wardBoundaryRings(features) {
+      const edges = new Map();
+      const pointKey = ([longitude, latitude]) => longitude + ',' + latitude;
+      const edgeKey = (start, end) => pointKey(start) + '>' + pointKey(end);
+      const collectRings = (coordinates, callback) => {
+        if (!Array.isArray(coordinates)) return;
+        if (Array.isArray(coordinates[0]) && typeof coordinates[0][0] === 'number') callback(coordinates);
+        else coordinates.forEach((coordinate) => collectRings(coordinate, callback));
+      };
+      features.forEach((feature) => {
+        collectRings(feature.geometry?.coordinates, (ring) => {
+          for (let index = 0; index < ring.length - 1; index++) {
+            const start = ring[index].slice(0, 2);
+            const end = ring[index + 1].slice(0, 2);
+            if (start[0] === end[0] && start[1] === end[1]) continue;
+            const key = edgeKey(start, end);
+            const reverse = edgeKey(end, start);
+            if (edges.has(reverse)) edges.delete(reverse);
+            else if (!edges.has(key)) edges.set(key, { key, start, end });
+          }
+        });
+      });
+      const outgoing = new Map();
+      edges.forEach((edge) => {
+        const key = pointKey(edge.start);
+        if (!outgoing.has(key)) outgoing.set(key, []);
+        outgoing.get(key).push(edge);
+      });
+      const unused = new Set(edges.keys());
+      const rings = [];
+      const chooseNext = (incoming, candidates) => {
+        const angle = (start, end) => Math.atan2(end[1] - start[1], end[0] - start[0]);
+        const incomingAngle = angle(incoming.start, incoming.end);
+        const turn = (edge) => (angle(edge.start, edge.end) - incomingAngle + Math.PI * 2) % (Math.PI * 2);
+        return candidates.reduce((best, edge) => turn(edge) < turn(best) ? edge : best);
+      };
+      while (unused.size) {
+        const first = edges.get(unused.values().next().value);
+        const startKey = pointKey(first.start);
+        const ring = [first.start];
+        let edge = first;
+        let closed = false;
+        let steps = 0;
+        while (steps++ <= edges.size) {
+          unused.delete(edge.key);
+          ring.push(edge.end);
+          const endKey = pointKey(edge.end);
+          if (endKey === startKey) { closed = true; break; }
+          const candidates = (outgoing.get(endKey) || []).filter((candidate) => unused.has(candidate.key));
+          if (!candidates.length) break;
+          edge = candidates.length === 1 ? candidates[0] : chooseNext(edge, candidates);
+        }
+        if (!closed) throw new Error('Ward boundaries could not be joined into a complete LGA outline.');
+        rings.push(ring);
+      }
+      return rings;
+    }
+
+    _buildWardBackedMap(collection) {
+      if (WARD_MAP_CACHE.has(collection)) return WARD_MAP_CACHE.get(collection);
+      const allFeatures = collection.features || [];
+      const bounds = { minLongitude:Infinity, maxLongitude:-Infinity, minLatitude:Infinity, maxLatitude:-Infinity };
+      const collectCoordinates = (coordinates) => {
+        if (!Array.isArray(coordinates)) return;
+        if (typeof coordinates[0] === 'number') {
+          bounds.minLongitude = Math.min(bounds.minLongitude, coordinates[0]);
+          bounds.maxLongitude = Math.max(bounds.maxLongitude, coordinates[0]);
+          bounds.minLatitude = Math.min(bounds.minLatitude, coordinates[1]);
+          bounds.maxLatitude = Math.max(bounds.maxLatitude, coordinates[1]);
+        } else coordinates.forEach(collectCoordinates);
+      };
+      allFeatures.forEach((feature) => feature.geometry && collectCoordinates(feature.geometry.coordinates));
+      if (!Number.isFinite(bounds.minLongitude) || !allFeatures.length) throw new Error('Ward boundaries contain no valid geometry.');
+      const centerLatitude = (bounds.minLatitude + bounds.maxLatitude) / 2 * Math.PI / 180;
+      const cosine = Math.cos(centerLatitude);
+      const projectedBounds = {
+        left:bounds.minLongitude * cosine,
+        right:bounds.maxLongitude * cosine,
+        top:-bounds.maxLatitude,
+        bottom:-bounds.minLatitude
+      };
+      const width = projectedBounds.right - projectedBounds.left;
+      const height = projectedBounds.bottom - projectedBounds.top;
+      const view = { x:0, y:0, width:632, height:516 };
+      const scale = Math.min(view.width / width, view.height / height);
+      const offsetX = view.x + (view.width - width * scale) / 2;
+      const offsetY = view.y + (view.height - height * scale) / 2;
+      const project = ([longitude, latitude]) => [
+        offsetX + (longitude * cosine - projectedBounds.left) * scale,
+        offsetY + (-latitude - projectedBounds.top) * scale
+      ];
+      const pathForRings = (rings) => rings.map((ring) => ring.map((point, index) => {
+        const [x, y] = project(point);
+        return (index ? 'L' : 'M') + x.toFixed(3) + ',' + y.toFixed(3);
+      }).join(' ') + ' Z').join(' ');
+      const ringsForFeature = (feature) => {
+        const rings = [];
+        const collect = (coordinates) => {
+          if (!Array.isArray(coordinates)) return;
+          if (Array.isArray(coordinates[0]) && typeof coordinates[0][0] === 'number') rings.push(coordinates);
+          else coordinates.forEach(collect);
+        };
+        collect(feature.geometry?.coordinates);
+        return rings;
+      };
+      const projectedArea = (ring) => {
+        let area = 0;
+        for (let index = 0; index < ring.length - 1; index++) {
+          const [x1, y1] = project(ring[index]);
+          const [x2, y2] = project(ring[index + 1]);
+          area += x1 * y2 - x2 * y1;
+        }
+        return Math.abs(area / 2);
+      };
+      const canonicalLga = (name) => ({ agaie:'agai', munya:'muya' }[normalize(name)] || normalize(name));
+      const groups = new Map();
+      allFeatures.forEach((feature) => {
+        const key = canonicalLga(feature.properties?.lga || '');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(feature);
+      });
+      const featureMap = {};
+      const regions = Object.entries(FEATURES).map(([id, name]) => {
+        const lgaFeatures = groups.get(canonicalLga(name)) || [];
+        if (!lgaFeatures.length) throw new Error('Ward boundaries are missing ' + name + '.');
+        const fill = pathForRings(lgaFeatures.flatMap(ringsForFeature));
+        const outlineRings = this._wardBoundaryRings(lgaFeatures).filter((ring) => projectedArea(ring) >= .5);
+        const outline = pathForRings(outlineRings);
+        featureMap[id] = name;
+        return '<g id="' + id + '" class="inistmap-lga-region"><path class="inistmap-lga-fill" d="' + fill + '" fill-rule="evenodd" stroke="none" pointer-events="all"/><path class="inistmap-lga-outline" d="' + outline + '" fill="none" stroke="inherit" stroke-width="1.2" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none"/></g>';
+      }).join('');
+      const attribution = 'Ward source: CIESIN, Columbia University and GRID3. 2026. GRID3 NGA Operational Wards v4.0. https://doi.org/10.7916/2pfj-hq78. CC BY-SA 4.0.';
+      const markup = '<svg xmlns="' + SVG_NS + '" viewBox="0 0 632 516" preserveAspectRatio="xMidYMid meet" fill-rule="evenodd" aria-label="Niger State local government areas"><metadata>' + attribution + '</metadata><g class="inistmap-regions">' + regions + '</g></svg>';
+      const result = { markup, featureMap, project };
+      WARD_MAP_CACHE.set(collection, result);
+      return result;
+    }
+
     async _load() {
       try {
         let markup = BUILTIN_SVG;
+        let featureMap = this.featureMap;
         if (this.options.mapUrl) {
           const response = await fetch(this.options.mapUrl, { signal: this.abortController.signal });
           if (!response.ok) throw new Error('Could not load map SVG (' + response.status + ').');
           markup = await response.text();
+        } else if (this.options.wardDrilldown && !this.options.featureMap) {
+          let wardCollection = this.options.wardGeoJSON || root.INISTMapWardData;
+          if (!wardCollection && this.options.wardDataUrl) {
+            this._wardDataPromise = fetch(this.options.wardDataUrl, { signal:this.abortController.signal }).then((response) => {
+              if (!response.ok) throw new Error('Could not load ward boundaries (' + response.status + ').');
+              return response.json();
+            });
+            try { wardCollection = await this._wardDataPromise; }
+            catch (_) { this._wardDataPromise = null; }
+          }
+          if (wardCollection?.features?.length) {
+            const generated = this._buildWardBackedMap(wardCollection);
+            markup = generated.markup;
+            featureMap = generated.featureMap;
+            this._wardProjection = generated.project;
+            this._wardGeoJSON = wardCollection;
+            this._wardMapGenerated = true;
+          }
         }
         this._createPopover();
-        this._installMapMarkup(markup, this.featureMap, this.data);
+        this._installMapMarkup(markup, featureMap, this.data);
         if (typeof ResizeObserver !== 'undefined') {
           this.resizeObserver = new ResizeObserver(() => this._positionPopover());
           this.resizeObserver.observe(this.stage);
         }
         (this.options.pins || []).forEach((pin) => this.addPin(pin));
+        if (this._wardMapGenerated) this._showWardAttribution();
         this.container.setAttribute('aria-busy', 'false');
         this.status.textContent = this.features.length + ' map areas ready.';
         this._emit('inistmap:ready', { map: this, count: this.features.length });
@@ -753,7 +914,8 @@
       layer.setAttribute('pointer-events', 'none');
       layer.setAttribute('transform', 'translate(' + (depth * .62) + ' ' + depth + ')');
       this.features.forEach((feature) => {
-        const side = feature.node.cloneNode(false);
+        const shape = feature.node.querySelector('.inistmap-lga-outline') || feature.node;
+        const side = shape.cloneNode(false);
         side.removeAttribute('id');
         side.removeAttribute('class');
         side.removeAttribute('style');
@@ -767,7 +929,7 @@
         side.setAttribute('stroke-linejoin', 'round');
         side.setAttribute('pointer-events', 'none');
         let renderedSide = side;
-        for (let parent = feature.node.parentElement; parent && parent !== this.svg; parent = parent.parentElement) {
+        for (let parent = shape.parentElement; parent && parent !== this.svg; parent = parent.parentElement) {
           const transform = parent.getAttribute('transform');
           if (!transform) continue;
           const wrapper = document.createElementNS(SVG_NS, 'g');
@@ -1113,7 +1275,7 @@
     }
 
     async openWardMap(lgaName) {
-      const bundledWardData = this.options.wardGeoJSON || root.INISTMapWardData;
+      const bundledWardData = this.options.wardGeoJSON || this._wardGeoJSON || root.INISTMapWardData;
       if (!this.options.wardDrilldown || (!bundledWardData && !this.options.wardDataUrl) || this._mapLevel !== 'lgas' || this._wardTransitionPending) return this;
       this._wardTransitionPending = true;
       const lga = String(lgaName || '');
@@ -1206,6 +1368,7 @@
           feature.node.style.pointerEvents = 'none';
           feature.node.setAttribute('tabindex', '-1');
           feature.node.setAttribute('aria-hidden', 'true');
+          if (normalize(feature.name) !== normalize(lga)) feature.node.style.display = 'none';
         });
         this.features.forEach((feature) => this._bindFeature(feature));
         this._renderExtrusion();
@@ -1237,60 +1400,59 @@
     }
 
     _createWardOverlay(features, lgaFeature) {
-      const bounds = { minLongitude:Infinity, maxLongitude:-Infinity, minLatitude:Infinity, maxLatitude:-Infinity };
-      const visit = (coordinates) => {
-        if (!Array.isArray(coordinates)) return;
-        if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
-          bounds.minLongitude = Math.min(bounds.minLongitude, coordinates[0]);
-          bounds.maxLongitude = Math.max(bounds.maxLongitude, coordinates[0]);
-          bounds.minLatitude = Math.min(bounds.minLatitude, coordinates[1]);
-          bounds.maxLatitude = Math.max(bounds.maxLatitude, coordinates[1]);
+      let project = this._wardProjection;
+      if (!project) {
+        const bounds = { minLongitude:Infinity, maxLongitude:-Infinity, minLatitude:Infinity, maxLatitude:-Infinity };
+        const visit = (coordinates) => {
+          if (!Array.isArray(coordinates)) return;
+          if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
+            bounds.minLongitude = Math.min(bounds.minLongitude, coordinates[0]);
+            bounds.maxLongitude = Math.max(bounds.maxLongitude, coordinates[0]);
+            bounds.minLatitude = Math.min(bounds.minLatitude, coordinates[1]);
+            bounds.maxLatitude = Math.max(bounds.maxLatitude, coordinates[1]);
+          } else coordinates.forEach(visit);
+        };
+        features.forEach((feature) => feature.geometry && visit(feature.geometry.coordinates));
+        if (!Number.isFinite(bounds.minLongitude) || !Number.isFinite(bounds.minLatitude) || !lgaFeature) {
+          throw new Error('Ward boundary data does not contain valid coordinates.');
         }
-        else coordinates.forEach(visit);
-      };
-      // Fit each LGA's wards to that LGA's own SVG geometry. The bundled LGA
-      // map and the operational ward dataset use different cartographic
-      // sources, so a single statewide transform makes ward shapes drift
-      // into neighboring LGAs or appear as a small state-shaped inset.
-      features.forEach((feature) => feature.geometry && visit(feature.geometry.coordinates));
-      if (!Number.isFinite(bounds.minLongitude) || !Number.isFinite(bounds.minLatitude)) {
-        throw new Error('Ward boundary data does not contain valid coordinates.');
+        const target = lgaFeature.node.getBBox();
+        const longitudeSpan = Math.max(.000001, bounds.maxLongitude - bounds.minLongitude);
+        const latitudeSpan = Math.max(.000001, bounds.maxLatitude - bounds.minLatitude);
+        project = ([longitude, latitude]) => [
+          target.x + (longitude - bounds.minLongitude) / longitudeSpan * target.width,
+          target.y + (bounds.maxLatitude - latitude) / latitudeSpan * target.height
+        ];
       }
-      const { minLongitude, maxLongitude, minLatitude, maxLatitude } = bounds;
-      const target = lgaFeature.node.getBBox();
-      const longitudeSpan = Math.max(.000001, maxLongitude - minLongitude);
-      const latitudeSpan = Math.max(.000001, maxLatitude - minLatitude);
-      const project = ([longitude, latitude]) => [
-        target.x + (longitude - minLongitude) / longitudeSpan * target.width,
-        target.y + (maxLatitude - latitude) / latitudeSpan * target.height
-      ];
       const pathForRings = (rings) => rings.map((ring) => ring.map((point, index) => {
         const [x, y] = project(point);
-        return (index ? 'L' : 'M') + x.toFixed(2) + ',' + y.toFixed(2);
+        return (index ? 'L' : 'M') + x.toFixed(3) + ',' + y.toFixed(3);
       }).join(' ') + ' Z').join(' ');
       const featureMap = {};
-      const clipPathId = this.instanceId + '-ward-clip';
-      const defs = this.svg.querySelector('defs') || document.createElementNS(SVG_NS, 'defs');
-      if (!defs.parentNode) this.svg.insertBefore(defs, this.svg.firstChild);
-      const clip = document.createElementNS(SVG_NS, 'clipPath');
-      clip.id = clipPathId;
-      clip.setAttribute('clipPathUnits', 'userSpaceOnUse');
-      let clippedFeature = lgaFeature.node.cloneNode(false);
-      ['id', 'class', 'style', 'tabindex', 'role', 'aria-label', 'aria-pressed', 'data-inistmap-id'].forEach((name) => clippedFeature.removeAttribute(name));
-      for (let parent = lgaFeature.node.parentElement; parent && parent !== this.svg; parent = parent.parentElement) {
-        const transform = parent.getAttribute('transform');
-        if (!transform) continue;
-        const wrapper = document.createElementNS(SVG_NS, 'g');
-        wrapper.setAttribute('transform', transform);
-        wrapper.append(clippedFeature);
-        clippedFeature = wrapper;
-      }
-      clip.append(clippedFeature);
-      defs.append(clip);
       const layer = document.createElementNS(SVG_NS, 'g');
       layer.setAttribute('class', 'inistmap-ward-layer');
-      layer.setAttribute('clip-path', 'url(#' + clipPathId + ')');
       layer.setAttribute('fill-rule', 'evenodd');
+      if (!this._wardProjection) {
+        const clipPathId = this.instanceId + '-ward-clip';
+        const defs = this.svg.querySelector('defs') || document.createElementNS(SVG_NS, 'defs');
+        if (!defs.parentNode) this.svg.insertBefore(defs, this.svg.firstChild);
+        const clip = document.createElementNS(SVG_NS, 'clipPath');
+        clip.id = clipPathId;
+        clip.setAttribute('clipPathUnits', 'userSpaceOnUse');
+        let clippedFeature = lgaFeature.node.cloneNode(false);
+        ['id', 'class', 'style', 'tabindex', 'role', 'aria-label', 'aria-pressed', 'data-inistmap-id'].forEach((name) => clippedFeature.removeAttribute(name));
+        for (let parent = lgaFeature.node.parentElement; parent && parent !== this.svg; parent = parent.parentElement) {
+          const transform = parent.getAttribute('transform');
+          if (!transform) continue;
+          const wrapper = document.createElementNS(SVG_NS, 'g');
+          wrapper.setAttribute('transform', transform);
+          wrapper.append(clippedFeature);
+          clippedFeature = wrapper;
+        }
+        clip.append(clippedFeature);
+        defs.append(clip);
+        layer.setAttribute('clip-path', 'url(#' + clipPathId + ')');
+      }
       features.forEach((feature, index) => {
         const id = 'ward-' + String(index + 1).padStart(3, '0');
         const polygonList = feature.geometry.type === 'MultiPolygon' ? feature.geometry.coordinates : [feature.geometry.coordinates];
@@ -1354,6 +1516,7 @@
     }
 
     _showWardAttribution() {
+      this.stage.querySelector('.inistmap-ward-attribution')?.remove();
       const attribution = document.createElement('a');
       attribution.className = 'inistmap-ward-attribution';
       attribution.href = 'https://doi.org/10.7916/2pfj-hq78';

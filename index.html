@@ -74,6 +74,8 @@
     .plain-map .panel-head { border-color:#26324a; color:#f3f5f9; margin:0 -10px 10px; padding:14px 17px; }
     .plain-map .panel-head span { color:#98a7bd; }
     .plain-map .inistmap-plain .inistmap-stage { border-radius:8px; min-height:min(78vh,680px); }
+    .ward-drilldown-demo { grid-column:1/-1; padding:8px; }
+    .ward-drilldown-demo .inistmap-stage { min-height:430px; }
     .mini-map .inistmap-header { padding:14px; }
     .mini-map .inistmap-stage { min-height:240px; }
     .mini-map .inistmap-aside { min-height:190px; }
@@ -119,7 +121,7 @@
         </div>
         <div class="main-demo">
           <div class="panel">
-            <div class="panel-head"><strong id="dataset-title">Service coverage</strong><span>Illustrative demo data</span></div>
+            <div class="panel-head"><strong id="dataset-title">Service coverage</strong><span>Click an LGA to open its wards · Illustrative demo data</span></div>
             <div class="panel-map"><div id="main-map"></div></div>
           </div>
           <aside class="panel insight-panel" aria-live="polite">
@@ -129,14 +131,16 @@
         </div>
 
         <div class="demo-grid">
-          <article class="panel plain-map"><div class="panel-head"><strong>Plain choropleth map</strong><span>Click any district label or shape · Drag to pan · Wheel/pinch to zoom</span></div><div id="plain-map"></div></article>
+          <article class="panel ward-drilldown-demo"><div class="panel-head"><strong>LGA → ward explorer</strong><span>Ward names are shown · Right-click a ward for details · Use “LGAs” to return</span></div><div id="ward-drilldown-map"></div></article>
+          <article class="panel plain-map"><div class="panel-head"><strong>Plain choropleth map</strong><span>Click an LGA to open its wards · Right-click for details · Drag to pan or wheel/pinch to zoom</span></div><div id="plain-map"></div></article>
           <article class="panel mini-map"><div class="panel-head"><strong>Location pins</strong><span>Click a pin</span></div><div id="pin-map"></div></article>
           <article class="map-card-dark"><div id="dark-map"></div></article>
         </div>
 
         <div class="snippet-grid" id="integrate">
-          <article class="snippet"><div class="snippet-head"><span>VANILLA JAVASCRIPT · LOCAL FILES</span><span>2 files</span></div><pre><code>&lt;link rel="stylesheet" href="inistmap.css"&gt;
+          <article class="snippet"><div class="snippet-head"><span>VANILLA JAVASCRIPT · LOCAL FILES</span><span>3 files for ward drilldown</span></div><pre><code>&lt;link rel="stylesheet" href="inistmap.css"&gt;
 &lt;div id="service-map" style="height:420px"&gt;&lt;/div&gt;
+&lt;script src="assets/niger-wards.js"&gt;&lt;/script&gt;
 &lt;script src="inistmap.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   const map = new INISTMap('#service-map', {
@@ -152,6 +156,7 @@
     </main>
     <footer>INISTMap · Interactive map of Niger State, Nigeria · Built with native SVG and JavaScript.</footer>
   </div>
+  <script src="assets/niger-wards.js"></script>
   <script src="inistmap.js"></script>
   <script>
     const coverage = {
@@ -160,15 +165,17 @@
     const agents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:18+(i*7)%34,label:String(18+(i*7)%34),description:'Field teams currently reporting from this area.'}]));
     const incidents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:(i*3)%13,label:String((i*3)%13),description:'Open reports logged in this demo area.'}]));
     const datasets = {coverage:{title:'Service coverage',label:'Coverage',data:coverage,colors:['#e6f2ee','#087f72']},agents:{title:'Field team activity',label:'Agents reporting',data:agents,colors:['#eaf0fb','#496dce']},incidents:{title:'Open reports by LGA',label:'Open reports',data:incidents,colors:['#fff0e9','#e46846']}};
-    const mapOptions = (data, label, colors, compact=false, theme='light') => ({title:'Niger State',data,valueLabel:label,colors,compact,theme,showLegend:false,showSearch:false,showStats:false});
+    const mapOptions = (data, label, colors, compact=false, theme='light') => ({title:'Niger State',data,valueLabel:label,colors,compact,theme,showLegend:false,showSearch:false,showStats:false,wardDrilldown:true});
     const mainMap = new INISTMap('#main-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors),onFeatureClick:updateInsight});
+    const wardExplorer = new INISTMap('#ward-drilldown-map',{title:'Niger State ward explorer',data:coverage,valueLabel:'Coverage',colors:datasets.coverage.colors,showLabels:true,labelMode:'name',popover:true,popoverTrigger:'contextmenu',wardDrilldown:true});
+    wardExplorer.ready.then(map=>map?.openWardMap('Borgu'));
     new INISTMap('#hero-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors,true),showLabels:false});
     new INISTMap('#pin-map', {...mapOptions({},'Locations',['#e8f3f1','#087f72'],true),pins:[{x:497,y:335,label:'Bida operations hub',description:'Regional coordination point',color:'#ef7954'},{x:693,y:415,label:'Suleja field office',description:'Support and logistics',color:'#4b72d5'}],onReady(map){map.addPin({x:383,y:525,label:'Mokwa supply point',color:'#36a67f',onClick:()=>alert('Mokwa supply point selected')});}});
     new INISTMap('#dark-map', {...mapOptions(agents,'Agents reporting',datasets.agents.colors,true,'dark'),showLegend:false,showStats:false});
     const plainPalette={A:'#f1b80b',APC:'#b5002b'};
     const plainData={};
     [...new Set(Object.values(INISTMap.features))].forEach((name,index)=>{const lead=index%3===0?'APC':'A';plainData[name]={value:lead==='APC'?1:0,label:lead,color:plainPalette[lead]};});
-    new INISTMap('#plain-map',{title:'Niger State',data:plainData,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true});
+    new INISTMap('#plain-map',{title:'Niger State',data:plainData,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true,popoverTrigger:'contextmenu',wardDrilldown:true});
 
     function updateInsight(area) {
       document.querySelector('#selected-name').textContent=area.name;

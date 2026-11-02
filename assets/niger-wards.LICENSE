@@ -1,0 +1,13 @@
+Niger State ward boundaries
+
+Source: Center for Integrated Earth System Information (CIESIN), Columbia University, and GRID3. 2026. GRID3 NGA - Operational Wards v4.0.
+Source data service: https://services3.arcgis.com/BU6Aadhn6tbBEdyk/ArcGIS/rest/services/GRID3_NGA_operational_wards_v4_0/FeatureServer
+Dataset catalogue: https://grid3.org/geospatial-data-nigeria
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/
+
+This GeoJSON contains the Niger State subset (25 LGAs, 275 wards), retrieved
+from the source service on 2 November 2026. The source describes these as
+operational boundaries; they have not been fully validated by government
+authorities and are not authoritative legal boundaries. Redistribution of
+this data or derived boundary data must retain attribution and this license.

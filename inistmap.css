@@ -18,7 +18,10 @@
 .inistmap-zoom-level { color:var(--im-muted); font-size:10px; min-width:36px; text-align:center; }
 .inistmap-content { align-items:stretch; display:grid; grid-template-columns:minmax(0,1.7fr) minmax(210px,.7fr); }
 .inistmap-stage { align-items:center; background:radial-gradient(ellipse at 52% 45%,#fff 0,#f8fbfa 70%); display:flex; justify-content:center; min-height:300px; overflow:hidden; padding:16px; position:relative; }
-.inistmap-svg { cursor:grab; display:block; height:auto; max-height:540px; max-width:100%; overflow:visible; touch-action:none; user-select:none; width:100%; }
+.inistmap-svg { cursor:grab; display:block; height:auto; max-height:540px; max-width:100%; overflow:visible; touch-action:none; user-select:none; transition:opacity .22s ease,transform .32s cubic-bezier(.2,.75,.25,1); width:100%; }
+.inistmap-ward-transitioning .inistmap-svg { opacity:0; transform:scale(.97); }
+.inistmap-ward-layer { pointer-events:none; }
+.inistmap-ward-shape { cursor:pointer; fill:rgba(255,255,255,.035); pointer-events:all; stroke:rgba(255,255,255,.96); stroke-linejoin:round; stroke-width:.85; vector-effect:non-scaling-stroke; }
 .inistmap-gesture-active .inistmap-svg { cursor:grabbing; }
 .inistmap-gesture-active .inistmap-feature { cursor:grabbing; }
 .inistmap-feature { cursor:pointer; fill:#e7f0ed; stroke:#fff; stroke-linejoin:round; stroke-width:1.5; transition:fill .18s ease,filter .18s ease,opacity .18s ease; vector-effect:non-scaling-stroke; }
@@ -86,6 +89,8 @@
 .inistmap-plain .inistmap-tools-overlay { background:rgba(9,15,29,.86); border:1px solid rgba(255,255,255,.14); border-radius:9px; left:12px; padding:4px; position:absolute; top:12px; z-index:2; }
 .inistmap-plain .inistmap-tools-overlay button { background:#172033; border-color:#344056; color:#f7f8fa; }
 .inistmap-plain .inistmap-tools-overlay output { color:#d0d8e5; }
+.inistmap-ward-attribution { background:rgba(9,15,29,.84); border:1px solid rgba(255,255,255,.16); border-radius:7px; bottom:10px; color:#d7e4e5; font:600 10px/1.2 system-ui,sans-serif; padding:7px 9px; position:absolute; right:10px; text-decoration:none; z-index:2; }
+.inistmap-ward-attribution:hover { color:#fff; }
 .inistmap-plain .inistmap-feature,.inistmap-plain .inistmap-feature:hover,.inistmap-plain .inistmap-feature:focus { filter:none!important; stroke:#fff!important; stroke-linejoin:round!important; stroke-width:1.2px!important; }
 .inistmap-plain .inistmap-feature.inistmap-selected { filter:brightness(1.06) saturate(1.2)!important; stroke:#fff!important; stroke-width:2.6px!important; }
 .inistmap-plain .inistmap-svg text:not(.inistmap-feature-label) { fill:#fff; paint-order:stroke; stroke:#101522; stroke-linejoin:round; stroke-width:2.5px; pointer-events:none!important; }

@@ -4,7 +4,7 @@ An embeddable, dependency-free SVG map of Niger State, Nigeria. Use it as a ligh
 
 ## Quick start
 
-Copy `inistmap.js` and `inistmap.css` into your project. The built-in Niger State SVG is bundled in the JavaScript file. Add a mount point and initialize the map:
+Copy `inistmap.js` and `inistmap.css` into your project. The built-in Niger State SVG is bundled in the JavaScript file. To use the Niger ward drilldown offline, also copy `assets/niger-wards.js` and load it before `inistmap.js`. Add a mount point and initialize the map:
 
 ```html
 <link rel="stylesheet" href="/vendor/inistmap/inistmap.css">
@@ -27,7 +27,7 @@ Copy `inistmap.js` and `inistmap.css` into your project. The built-in Niger Stat
 </script>
 ```
 
-The map needs a container with a non-zero height. The default SVG geometry is bundled in `inistmap.js`, so the map works without a separate asset request and can render from a local HTML file. Set `mapUrl` only when you want to use another SVG; it must include a `viewBox`, be served from the same origin or with suitable CORS headers, and have a `featureMap` that maps element IDs to names. Each instance exposes a `ready` promise that resolves to the map or `null` if the SVG could not load; errors are also sent to `onError` and `inistmap:error`.
+The map needs a container with a non-zero height. The default LGA SVG is bundled in `inistmap.js`. The optional `assets/niger-wards.js` file bundles ward geometry as `INISTMapWardData`, so demos can run directly from `file://` without fetching data. Load that script before `inistmap.js` and set `wardDrilldown: true`. If you prefer to host GeoJSON, set `wardDataUrl` to a URL and serve it over HTTP(S) with suitable CORS headers. Set `mapUrl` only when you want to use another SVG; it must include a `viewBox`, be served from the same origin or with suitable CORS headers, and have a `featureMap` that maps element IDs to names. Each instance exposes a `ready` promise that resolves to the map or `null` if the SVG could not load; errors are also sent to `onError` and `inistmap:error`.
 
 ## Features
 
@@ -40,6 +40,7 @@ The map needs a container with a non-zero height. The default SVG geometry is bu
 - Optional pins with custom content and click callbacks.
 - Events and methods for updating data, selecting an LGA, and adding/removing pins.
 - A clean `variant: 'plain'` map for full-bleed dashboard and presentation layouts.
+- Optional click-through from all 25 Niger State LGAs to interactive ward maps, with zoom, pan, hover details, selection, and a one-click return to the state map.
 - Optional silhouette-only 3D depth, rendered as one continuous outer edge behind all regions.
 - Linear, equal-interval, and quantile color classification, plus custom feature maps for alternate SVGs.
 - Customizable map URL, colors, feature data, legend, and callbacks.
@@ -63,14 +64,18 @@ The map needs a container with a non-zero height. The default SVG geometry is bu
 | `theme` | `light` | Set to `dark` for a dark dashboard card. |
 | `showControls` | `true` | Show zoom, focus, reset, fullscreen, and export controls. |
 | `wheelZoom` | `true` | Enable wheel and touchpad zoom over the map. Two-finger touch zoom is also supported. |
-| `wheelSensitivity` | `1` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `20` (fast). Large values are capped to a smooth per-step change. |
+| `wheelSensitivity` | `20` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `20` (fast). Large values are capped to a smooth per-step change. |
 | `minZoom` / `maxZoom` | `1` / `8` | Set allowed zoom bounds. |
 | `panOverscroll` | `0.12` | Allow a small pan margin around the map, including at the initial zoom level. Set to `0` to keep the map inside its original bounds. |
 | `extrusionDepth` | `0` | Draw one continuous, offset map silhouette behind the regions. Set a small value such as `8` for outside-only 3D depth. |
 | `extrusionColor` | `#25334a` | Color for the outside-only extrusion layer. |
 | `zoomOnSelect` | `false` | Zoom into a feature whenever it is selected or a label is clicked. |
 | `popover` | `false` | Enable an anchored detail popover with the metric, description, and optional link. |
-| `popoverTrigger` | `both` | Choose `hover`, `click`, or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
+| `popoverTrigger` | `both` | Choose `hover`, `click`, `contextmenu` (right-click), or `both` to control how an enabled popover opens. Hover previews stay open while the pointer moves from a region or label onto the popover. |
+| `wardDrilldown` | `false` | Smoothly zoom into the selected LGA and reveal its ward boundaries fitted to and clipped by that LGA's own map outline. Each LGA is fitted independently. Wards remain interactive, and Back returns to all LGAs. |
+| `wardDataUrl` | `null` | Optional HTTP(S) GeoJSON FeatureCollection URL. Local `file://` pages should load `assets/niger-wards.js` instead of fetching GeoJSON. |
+| `wardGeoJSON` | `null` | Pass a GeoJSON FeatureCollection directly; otherwise INISTMap uses the bundled `INISTMapWardData` global if loaded. |
+| `wardData` | `{}` | Optional ward metrics keyed by LGA, then ward name, e.g. `{ Borgu: { Baro: { value: 42, label: '42%' } } }`. |
 | `redirectOnFeatureClick` | `false` | Navigate to that feature's `url`, `href`, or `redirect` URL on click. A feature can opt in individually with `redirect: true`. |
 | `redirectTarget` | `_self` | Open automatic redirects in the current tab or use `_blank` for a new tab. |
 | `scaleType` | `linear` | Choose `linear`, `equal`, or `quantile` choropleth coloring. |
@@ -85,12 +90,15 @@ The map needs a container with a non-zero height. The default SVG geometry is bu
 
 Feature objects passed to callbacks contain `id`, `name`, `value`, `label`, `description`, and the original `data` object. Area and label clicks share the same selection, callback, popover, and optional redirect behavior. Calling `map.setData(data)` refreshes colors and labels. Use `map.select(nameOrId)` to select an area, `map.zoomTo(nameOrId)` to focus it, `map.zoomBy(factor)` to zoom, `map.resetView()` to return to the full map, `map.addPin(pin)` / `map.removePin(id)` / `map.clearPins()` to manage pins, and `map.export('svg')` or `map.export('png')` to download the current view. `map.destroy()` removes listeners and rendered markup.
 
+When ward drilldown is enabled, feature callbacks also include `level` (`'lgas'` or `'wards'`) and the parent `lga` for ward selections. Listen for `inistmap:level-change` to respond to map transitions. Call `map.backToLGAs()` to return to the full state view.
+
 ### Popovers and redirects
 
 ```js
 new INISTMap('#niger-map', {
   popover: true,
-  popoverTrigger: 'both', // 'hover', 'click', or 'both'
+  popoverTrigger: 'both', // 'hover', 'click', 'contextmenu', or 'both'
+  wardDrilldown: true,
   data: {
     Suleja: {
       value: 88,
@@ -110,6 +118,10 @@ new INISTMap('#niger-map', {
 
 When `redirect` is omitted, the popover shows an explicit link and selection stays on the current page. Set `redirectOnFeatureClick: true` to make every feature with a valid `url` navigate when selected.
 
+### Ward boundary source
+
+The bundled ward polygons come from **GRID3 NGA Operational Wards v4.0**, published in October 2026. The source includes Niger State's 25 LGAs and 275 wards. Attribution is shown while a ward map is open. The dataset is licensed CC BY-SA 4.0; redistributed copies and derived boundary data must keep the attribution and the same license. GRID3 describes the boundaries as operational and not yet fully validated by government authorities, so treat them as a planning/map layer rather than authoritative legal boundaries. See [GRID3's Nigeria data catalogue](https://grid3.org/geospatial-data-nigeria) and the [GRID3 v4 ArcGIS Feature Service](https://services3.arcgis.com/BU6Aadhn6tbBEdyk/ArcGIS/rest/services/GRID3_NGA_operational_wards_v4_0/FeatureServer).
+
 ## Events
 
 The map dispatches bubbling custom events from its container:
@@ -120,7 +132,7 @@ document.querySelector('#niger-map').addEventListener('inistmap:select', (event)
 });
 ```
 
-Available events: `inistmap:ready`, `inistmap:select`, `inistmap:hover`, `inistmap:viewport`, and `inistmap:error`.
+Available events: `inistmap:ready`, `inistmap:select`, `inistmap:hover`, `inistmap:viewport`, `inistmap:level-change`, and `inistmap:error`.
 
 The map supports keyboard shortcuts when a region is focused: `+` / `-` zoom, `0` or `Home` resets, and arrow keys move focus between areas. On touch screens, drag to pan and pinch to zoom. Generated data labels activate the same selection, callback, popover, and redirect behavior as their mapped area.
 

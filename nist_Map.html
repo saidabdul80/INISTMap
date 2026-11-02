@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Niger State interactive map</title><link rel="stylesheet" href="inistmap.css"><style>body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:24px;background:#f4f8f7}.map{height:min(86vh,760px);margin:auto;max-width:1100px}</style></head>
-<body><main class="map" id="niger-map"></main><script src="inistmap.js"></script><script>
+<body><main class="map" id="niger-map"></main><script src="assets/niger-wards.js"></script><script src="inistmap.js"></script><script>
 const colors={A:'#f1b80b',APC:'#b5002b'};
 const data={};
 [...new Set(Object.values(INISTMap.features))].forEach((name,index)=>{const lead=index%3===0?'APC':'A';data[name]={value:lead==='APC'?1:0,label:lead,color:colors[lead]};});
-new INISTMap('#niger-map',{title:'Niger State',data,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true});
+new INISTMap('#niger-map',{title:'Niger State',data,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true,wardDrilldown:true});
 </script></body>
 </html>

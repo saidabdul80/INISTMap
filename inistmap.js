@@ -40,6 +40,10 @@
     zoomOnSelect: false,
     popover: false,
     popoverTrigger: 'both',
+    wardDrilldown: false,
+    wardDataUrl: null,
+    wardGeoJSON: null,
+    wardData: {},
     redirectOnFeatureClick: false,
     redirectTarget: '_self',
     theme: 'light',
@@ -84,6 +88,8 @@
       this.featureMap = this.options.featureMap || FEATURES;
       this.instanceId = 'inistmap-options-' + INISTMap._nextId++;
       this.data = this.options.data || {};
+      this._mainMapTitle = this.options.title;
+      this._mapLevel = 'lgas';
       this.features = [];
       this.pinNodes = new Map();
       this.selectedId = null;
@@ -101,7 +107,7 @@
       this.container.replaceChildren();
       const shell = document.createElement('section');
       shell.className = 'inistmap-shell' + (this.options.compact ? ' inistmap-compact' : '') + (this.options.variant === 'plain' ? ' inistmap-plain' : '') + (this.options.theme === 'dark' ? ' inistmap-dark' : '');
-      shell.innerHTML = '<header class="inistmap-header"><div><p class="inistmap-eyebrow">INTERACTIVE MAP</p><h2 class="inistmap-title"></h2><p class="inistmap-subtitle">Explore local data by local government area.</p></div><div class="inistmap-header-actions"><label class="inistmap-search-wrap"><span>Find an LGA</span><input class="inistmap-search" type="search" placeholder="Search LGAs" autocomplete="off" list="inistmap-options"><datalist class="inistmap-options"></datalist></label><div class="inistmap-tools" role="toolbar" aria-label="Map controls"><button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out">−</button><output class="inistmap-zoom-level" aria-live="polite">100%</output><button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-action="fit-selection" aria-label="Focus selected area" title="Focus selected area" disabled>Focus</button><button type="button" data-action="reset" aria-label="Reset map view" title="Reset map view">Reset</button><button type="button" data-action="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">⛶</button><button type="button" data-action="export-svg" title="Download SVG">SVG</button><button type="button" data-action="export-png" title="Download PNG">PNG</button></div></div></header><div class="inistmap-content"><div class="inistmap-stage" role="region" aria-label="Map. Use plus and minus to zoom, drag to pan, and select an area for details."></div><aside class="inistmap-aside"><div class="inistmap-stats"></div><div class="inistmap-legend"></div><div class="inistmap-detail" aria-live="polite"><p class="inistmap-detail-kicker">SELECT AN AREA</p><h3 class="inistmap-detail-name">Niger State</h3><p class="inistmap-detail-copy">Choose an LGA on the map or use the search box to see its details.</p></div></aside></div><p class="inistmap-status" role="status" aria-live="polite">Loading map…</p></section>';
+      shell.innerHTML = '<header class="inistmap-header"><div><p class="inistmap-eyebrow">INTERACTIVE MAP</p><h2 class="inistmap-title"></h2><p class="inistmap-subtitle">Explore local data by local government area.</p></div><div class="inistmap-header-actions"><label class="inistmap-search-wrap"><span>Find an LGA</span><input class="inistmap-search" type="search" placeholder="Search LGAs" autocomplete="off" list="inistmap-options"><datalist class="inistmap-options"></datalist></label><div class="inistmap-tools" role="toolbar" aria-label="Map controls"><button type="button" data-action="back-to-lgas" aria-label="Back to all LGAs" title="Back to all LGAs" hidden>← LGAs</button><button type="button" data-action="zoom-out" aria-label="Zoom out" title="Zoom out">−</button><output class="inistmap-zoom-level" aria-live="polite">100%</output><button type="button" data-action="zoom-in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-action="fit-selection" aria-label="Focus selected area" title="Focus selected area" disabled>Focus</button><button type="button" data-action="reset" aria-label="Reset map view" title="Reset map view">Reset</button><button type="button" data-action="fullscreen" aria-label="Enter fullscreen" title="Fullscreen">⛶</button><button type="button" data-action="export-svg" title="Download SVG">SVG</button><button type="button" data-action="export-png" title="Download PNG">PNG</button></div></div></header><div class="inistmap-content"><div class="inistmap-stage" role="region" aria-label="Map. Use plus and minus to zoom, drag to pan, and select an area for details."></div><aside class="inistmap-aside"><div class="inistmap-stats"></div><div class="inistmap-legend"></div><div class="inistmap-detail" aria-live="polite"><p class="inistmap-detail-kicker">SELECT AN AREA</p><h3 class="inistmap-detail-name">Niger State</h3><p class="inistmap-detail-copy">Choose an LGA on the map or use the search box to see its details.</p></div></aside></div><p class="inistmap-status" role="status" aria-live="polite">Loading map…</p></section>';
       this.container.append(shell);
       this.shell = shell;
       this.stage = shell.querySelector('.inistmap-stage');
@@ -128,10 +134,6 @@
           feature.node.classList.toggle('inistmap-muted', query && !normalize(feature.name).includes(query));
         });
       });
-      this.search.addEventListener('change', () => {
-        const match = this.features.find((feature) => normalize(feature.name) === normalize(this.search.value));
-        if (match) { this.select(match.id); this.zoomTo(match.name); }
-      });
     }
 
     _bindControls() {
@@ -139,6 +141,7 @@
         const button = event.target.closest('button[data-action]');
         if (!button) return;
         const action = button.dataset.action;
+        if (action === 'back-to-lgas') { this.backToLGAs(); return; }
         if (action === 'zoom-in') this.zoomBy(1.2, undefined, undefined, true);
         if (action === 'zoom-out') this.zoomBy(1 / 1.2, undefined, undefined, true);
         if (action === 'reset') this.resetView();
@@ -152,7 +155,10 @@
         }
       });
       this.search.addEventListener('change', () => {
-        if (this.select(this.search.value).selectedId) this.zoomTo(this.selectedId);
+        const feature = this.features.find((item) => normalize(item.name) === normalize(this.search.value));
+        if (!feature) return;
+        if (this._mapLevel === 'lgas' && this.options.wardDrilldown) this._activateFeature(feature);
+        else { this.select(feature.id); this.zoomTo(feature.name); }
       });
       this._onFullscreenChange = () => {
         const button = this.tools.querySelector('[data-action="fullscreen"]');
@@ -164,6 +170,9 @@
     }
 
     _bindNavigation() {
+      this._navigationController?.abort();
+      this._navigationController = new AbortController();
+      const signal = this._navigationController.signal;
       const bounds = this.svg.viewBox.baseVal;
       this.baseViewBox = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
       this.viewBox = { ...this.baseViewBox };
@@ -180,7 +189,7 @@
         this._cancelViewAnimation();
         this._wheelTargetBox = this._constrainViewBox(this._zoomedBox(factor, event.clientX, event.clientY, source));
         this._startWheelZoom();
-      }, { passive: false });
+      }, { passive: false, signal });
 
       this._onPointerDown = (event) => {
         if (event.button !== undefined && event.button !== 0) return;
@@ -251,10 +260,10 @@
           this.stage.classList.remove('inistmap-gesture-active');
         }
       };
-      this.svg.addEventListener('pointerdown', this._onPointerDown);
-      document.addEventListener('pointermove', this._onPointerMove);
-      document.addEventListener('pointerup', this._onPointerUp);
-      document.addEventListener('pointercancel', this._onPointerUp);
+      this.svg.addEventListener('pointerdown', this._onPointerDown, { signal });
+      document.addEventListener('pointermove', this._onPointerMove, { signal });
+      document.addEventListener('pointerup', this._onPointerUp, { signal });
+      document.addEventListener('pointercancel', this._onPointerUp, { signal });
       this.svg.addEventListener('keydown', (event) => {
         if (event.key === '+' || event.key === '=') { event.preventDefault(); this.zoomBy(1.2, undefined, undefined, true); }
         if (event.key === '-') { event.preventDefault(); this.zoomBy(1 / 1.2, undefined, undefined, true); }
@@ -265,7 +274,19 @@
           const next = this.features[(index + step + this.features.length) % this.features.length];
           if (next) { event.preventDefault(); next.node.focus(); }
         }
-      });
+      }, { signal });
+      if (this.options.popover && this.options.popoverTrigger === 'contextmenu') {
+        this.svg.addEventListener('contextmenu', (event) => {
+          event.preventDefault();
+          const target = event.target.closest?.('.inistmap-feature, .inistmap-feature-label');
+          if (!target) return;
+          const featureId = target.getAttribute('data-inistmap-id') || target.getAttribute('data-feature-id');
+          const feature = this.features.find((item) => item.id === featureId);
+          if (!feature) return;
+          this.select(feature.id);
+          this._showPopover(feature);
+        }, { signal });
+      }
       this._updateZoomLabel();
     }
 
@@ -486,50 +507,17 @@
     async _load() {
       try {
         let markup = BUILTIN_SVG;
-        const usesBundledMap = !this.options.mapUrl;
         if (this.options.mapUrl) {
           const response = await fetch(this.options.mapUrl, { signal: this.abortController.signal });
           if (!response.ok) throw new Error('Could not load map SVG (' + response.status + ').');
           markup = await response.text();
         }
-        const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
-        const svg = parsed.documentElement;
-        if (svg.localName !== 'svg' || parsed.querySelector('parsererror')) throw new Error('Map SVG is not valid XML.');
-        svg.removeAttribute('width');
-        svg.removeAttribute('height');
-        svg.setAttribute('class', 'inistmap-svg');
-        svg.setAttribute('role', 'group');
-        svg.setAttribute('aria-label', this.options.title + ' local government areas');
-        svg.setAttribute('focusable', 'false');
-        this.stage.replaceChildren(document.importNode(svg, true));
-        this.svg = this.stage.querySelector('svg');
         this._createPopover();
-        this.svg.querySelectorAll('text').forEach((label) => {
-          if (this.options.showLabels && ['name', 'both'].includes(this.options.labelMode)) {
-            label.remove();
-          } else {
-            label.style.pointerEvents = 'none';
-          }
-        });
-        this.svg.querySelectorAll('image').forEach((label) => {
-          label.style.pointerEvents = 'none';
-          if (usesBundledMap) label.remove();
-        });
-        if (this.options.variant === 'plain') this.stage.append(this.tools);
-        if (!this.svg.viewBox.baseVal.width || !this.svg.viewBox.baseVal.height) throw new Error('Map SVG needs a non-empty viewBox.');
-        this._bindNavigation();
-        const nodes = new Map([...this.svg.querySelectorAll('[id]')].map((node) => [node.id, node]));
-        this.features = Object.entries(this.featureMap)
-          .filter(([id]) => nodes.has(id))
-          .map(([id, name]) => ({ id, name, node: nodes.get(id) }));
-        this._renderExtrusion();
-        this.features.forEach((feature) => this._bindFeature(feature));
+        this._installMapMarkup(markup, this.featureMap, this.data);
         if (typeof ResizeObserver !== 'undefined') {
           this.resizeObserver = new ResizeObserver(() => this._positionPopover());
           this.resizeObserver.observe(this.stage);
         }
-        this._renderSearchOptions();
-        this.setData(this.data);
         (this.options.pins || []).forEach((pin) => this.addPin(pin));
         this.container.setAttribute('aria-busy', 'false');
         this.status.textContent = this.features.length + ' map areas ready.';
@@ -545,6 +533,44 @@
         if (typeof this.options.onError === 'function') this.options.onError(error);
         return null;
       }
+    }
+
+    _installMapMarkup(markup, featureMap, data) {
+        const parsed = new DOMParser().parseFromString(markup, 'image/svg+xml');
+        const svg = parsed.documentElement;
+        if (svg.localName !== 'svg' || parsed.querySelector('parsererror')) throw new Error('Map SVG is not valid XML.');
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        svg.setAttribute('class', 'inistmap-svg');
+        svg.setAttribute('role', 'group');
+        svg.setAttribute('aria-label', this.options.title + (this._mapLevel === 'wards' ? ' wards' : ' local government areas'));
+        svg.setAttribute('focusable', 'false');
+        this.svg?.remove();
+        const mapNode = document.importNode(svg, true);
+        const reference = this.popover || (this.tools.parentElement === this.stage ? this.tools : null);
+        this.stage.insertBefore(mapNode, reference);
+        this.svg = mapNode;
+        this.featureMap = featureMap;
+        this.svg.querySelectorAll('text').forEach((label) => {
+          if (this.options.showLabels && ['name', 'both'].includes(this.options.labelMode)) {
+            label.remove();
+          } else {
+            label.style.pointerEvents = 'none';
+          }
+        });
+        this.svg.querySelectorAll('image').forEach((label) => {
+          label.style.pointerEvents = 'none';
+        });
+        if (!this.svg.viewBox.baseVal.width || !this.svg.viewBox.baseVal.height) throw new Error('Map SVG needs a non-empty viewBox.');
+        this._bindNavigation();
+        const nodes = new Map([...this.svg.querySelectorAll('[id]')].map((node) => [node.id, node]));
+        this.features = Object.entries(this.featureMap)
+          .filter(([id]) => nodes.has(id))
+          .map(([id, name]) => ({ id, name, node: nodes.get(id) }));
+        this._renderExtrusion();
+        this.features.forEach((feature) => this._bindFeature(feature));
+        this._renderSearchOptions();
+        this.setData(data);
     }
 
     _bindFeature(feature) {
@@ -569,7 +595,7 @@
       node.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          this.select(id);
+          this._activateFeature(feature, event);
         }
       });
     }
@@ -581,7 +607,11 @@
     }
 
     _featureData(feature) {
-      return this._lookup(feature.name) || this._lookup(feature.id) || {};
+      const item = this._lookup(feature.name) || this._lookup(feature.id);
+      if (item) return item;
+      return this._mapLevel === 'wards'
+        ? { description:'Electoral ward in ' + this._currentLgaName + ' Local Government Area, Niger State.' }
+        : {};
     }
 
     _palette() {
@@ -696,7 +726,8 @@
     _renderStats(values) {
       if (!this.options.showStats) { this.stats.replaceChildren(); return; }
       const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-      this.stats.innerHTML = '<div><strong class="inistmap-stat-count"></strong><span>LGAs on map</span></div><div><strong class="inistmap-stat-average"></strong><span>Average ' + this._escape(this.options.valueLabel.toLowerCase()) + '</span></div>';
+      const countLabel = this._mapLevel === 'wards' ? 'Wards in LGA' : 'LGAs on map';
+      this.stats.innerHTML = '<div><strong class="inistmap-stat-count"></strong><span>' + countLabel + '</span></div><div><strong class="inistmap-stat-average"></strong><span>Average ' + this._escape(this.options.valueLabel.toLowerCase()) + '</span></div>';
       this.stats.querySelector('.inistmap-stat-count').textContent = String(new Set(this.features.map((feature) => feature.name)).size);
       this.stats.querySelector('.inistmap-stat-average').textContent = average == null ? '—' : Number.isInteger(average) ? String(average) : average.toFixed(1);
     }
@@ -704,6 +735,7 @@
     _renderSearchOptions() {
       const options = this.shell.querySelector('.inistmap-options');
       options.id = this.instanceId;
+      options.replaceChildren();
       [...new Set(this.features.map((feature) => feature.name))].sort().forEach((name) => {
         const option = document.createElement('option');
         option.value = name;
@@ -713,7 +745,7 @@
 
     _renderExtrusion() {
       this.svg.querySelector('.inistmap-extrusion')?.remove();
-      const depth = Math.max(0, Math.min(36, Number(this.options.extrusionDepth) || 0));
+      const depth = this._mapLevel === 'wards' ? 0 : Math.max(0, Math.min(36, Number(this.options.extrusionDepth) || 0));
       if (!depth || !this.features.length) return;
       const layer = document.createElementNS(SVG_NS, 'g');
       layer.setAttribute('class', 'inistmap-extrusion');
@@ -775,7 +807,8 @@
           const right = Math.max(...boxes.map((box) => box.x + box.width));
           const bottom = Math.max(...boxes.map((box) => box.y + box.height));
           const box = { x:left, y:top, width:right-left, height:bottom-top };
-          if (box.width < 26 || box.height < 18) return;
+          const wardLabel = this._mapLevel === 'wards' && showName;
+          if (!wardLabel && (box.width < 26 || box.height < 18)) return;
           const text = document.createElementNS(SVG_NS, 'text');
           text.setAttribute('x', String(box.x + box.width / 2));
           text.setAttribute('y', String(box.y + box.height / 2 - (showName && labelValue ? 4 : 0)));
@@ -790,6 +823,11 @@
           text.style.strokeWidth = '1.5px';
           text.style.strokeLinejoin = 'round';
           text.style.paintOrder = 'stroke';
+          if (wardLabel) {
+            const fittedFontSize = Math.max(5, Math.min(10, box.height * .32, box.width / Math.max(4, name.length * .58)));
+            text.style.fontSize = fittedFontSize + 'px';
+            text.style.strokeWidth = '1px';
+          }
           text.addEventListener('click', (event) => {
             event.stopPropagation();
             if (this._suppressNextClick && event.detail !== 0) {
@@ -950,10 +988,13 @@
       const item = this._featureData(feature);
       const url = this._featureUrl(item);
       const shouldRedirect = this.options.redirectOnFeatureClick || item.redirect === true || item.navigate === true || typeof item.redirect === 'string';
-      if (!url || !shouldRedirect) return;
-      const target = item.target === '_blank' || (!item.target && this.options.redirectTarget === '_blank') ? '_blank' : '_self';
-      if (target === '_blank') window.open(url.href, '_blank', 'noopener,noreferrer');
-      else window.location.assign(url.href);
+      if (url && shouldRedirect) {
+        const target = item.target === '_blank' || (!item.target && this.options.redirectTarget === '_blank') ? '_blank' : '_self';
+        if (target === '_blank') window.open(url.href, '_blank', 'noopener,noreferrer');
+        else window.location.assign(url.href);
+        return;
+      }
+      if (this._mapLevel === 'lgas' && this.options.wardDrilldown) this.openWardMap(feature.name);
     }
 
     _showDetail(feature) {
@@ -1064,11 +1105,263 @@
 
     _publicFeature(feature) {
       const item = this._featureData(feature);
-      return { id: feature.id, name: feature.name, value: item.value ?? null, label: item.label ?? '', description: item.description || '', data: item };
+      return { id: feature.id, name: feature.name, level:this._mapLevel, lga:this._mapLevel === 'wards' ? this._currentLgaName : null, value: item.value ?? null, label: item.label ?? '', description: item.description || '', data: item };
     }
 
     _emit(name, detail) {
       this.container.dispatchEvent(new CustomEvent(name, { bubbles: true, detail }));
+    }
+
+    async openWardMap(lgaName) {
+      const bundledWardData = this.options.wardGeoJSON || root.INISTMapWardData;
+      if (!this.options.wardDrilldown || (!bundledWardData && !this.options.wardDataUrl) || this._mapLevel !== 'lgas' || this._wardTransitionPending) return this;
+      this._wardTransitionPending = true;
+      const lga = String(lgaName || '');
+      this.status.textContent = 'Loading wards for ' + lga + '…';
+      try {
+        if (!this._wardDataPromise) {
+          this._wardDataPromise = bundledWardData
+            ? Promise.resolve(bundledWardData)
+            : fetch(this.options.wardDataUrl, { signal: this.abortController.signal })
+              .then((response) => {
+                if (!response.ok) throw new Error('Could not load ward boundaries (' + response.status + ').');
+                return response.json();
+              })
+              .catch((error) => { this._wardDataPromise = null; throw error; });
+        }
+        const collection = await this._wardDataPromise;
+        if (this._mapLevel !== 'lgas') return this;
+        const aliases = { munya:'muya', agaie:'agai' };
+        const wanted = aliases[normalize(lga)] || normalize(lga);
+        const wards = (collection.features || []).filter((feature) => {
+          const name = normalize(feature.properties?.lga);
+          return (aliases[name] || name) === wanted;
+        });
+        if (!wards.length) throw new Error('No ward boundaries were found for ' + lga + '.');
+        const lgaFeature = this.features.find((feature) => normalize(feature.name) === normalize(lga));
+        if (lgaFeature) {
+          this.status.textContent = 'Zooming into ' + lga + '…';
+          this.zoomTo(lgaFeature.id, 1.08, true);
+          if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+        if (this.destroyed || this._mapLevel !== 'lgas') return this;
+        const mainMapMarkup = this.svg.cloneNode(true);
+        mainMapMarkup.setAttribute('viewBox', [this.baseViewBox.x, this.baseViewBox.y, this.baseViewBox.width, this.baseViewBox.height].join(' '));
+        this._mainViewSnapshot = {
+          markup:mainMapMarkup.outerHTML,
+          featureMap:this.featureMap,
+          data:this.data,
+          valueLabel:this.options.valueLabel,
+          selectedId:this.selectedId,
+          lgaFeatures:this.features,
+          baseViewBox:{ ...this.baseViewBox },
+          showLabels:this.options.showLabels,
+          labelMode:this.options.labelMode,
+          selectedName:this.features.find((feature) => feature.id === this.selectedId)?.name || lga
+        };
+        this._cancelViewAnimation();
+        this._cancelWheelZoom();
+        this._hidePopover();
+        this._mapLevel = 'wards';
+        this._currentLgaName = lga;
+        this.options.title = lga;
+        this.options.showLabels = true;
+        this.options.labelMode = 'name';
+        const suppliedWardData = this._wardDataFor(lga);
+        const wardData = Object.fromEntries(wards.map((feature) => [feature.properties.ward, {
+          color:'rgba(255,255,255,.035)',
+          description:'Electoral ward in ' + lga + ' Local Government Area, Niger State.'
+        }]));
+        Object.entries(suppliedWardData).forEach(([name, item]) => { wardData[name] = item; });
+        const hasWardMetrics = Object.values(wardData).some((item) => item && (item.value != null || item.label));
+        if (!hasWardMetrics) this.options.valueLabel = 'Ward information';
+        this.selectedId = null;
+        this.search.closest('.inistmap-search-wrap').hidden = !this.options.showSearch;
+        this.search.closest('.inistmap-search-wrap').querySelector('span').textContent = 'Find a ward';
+        this.search.placeholder = 'Search wards';
+        this.search.value = '';
+        this.tools.querySelector('[data-action="back-to-lgas"]').hidden = false;
+        this.tools.querySelector('[data-action="fit-selection"]').disabled = true;
+        this.shell.querySelector('.inistmap-title').textContent = lga + ' wards';
+        this.shell.querySelector('.inistmap-subtitle').textContent = 'Explore wards within ' + lga + ' LGA.';
+        this.stage.setAttribute('aria-label', lga + ' wards map. Use plus and minus to zoom, drag to pan, and select a ward for details.');
+        this.detail.replaceChildren();
+        const kicker = document.createElement('p');
+        kicker.className = 'inistmap-detail-kicker';
+        kicker.textContent = 'WARD BOUNDARIES';
+        const heading = document.createElement('h3');
+        heading.className = 'inistmap-detail-name';
+        heading.textContent = lga;
+        const description = document.createElement('p');
+        description.className = 'inistmap-detail-copy';
+        description.textContent = 'Select a ward to inspect it. Drag to pan, scroll or pinch to zoom.';
+        this.detail.append(kicker, heading, description);
+        const wardLayer = this._createWardOverlay(wards, lgaFeature);
+        const wardNodes = new Map([...wardLayer.querySelectorAll('[id]')].map((node) => [node.id, node]));
+        this.featureMap = wardLayer.featureMap;
+        this.features = Object.entries(this.featureMap).map(([id, name]) => ({ id, name, node:wardNodes.get(id) }));
+        this._mainViewSnapshot.lgaFeatures.forEach((feature) => {
+          feature.node.style.pointerEvents = 'none';
+          feature.node.setAttribute('tabindex', '-1');
+          feature.node.setAttribute('aria-hidden', 'true');
+        });
+        this.features.forEach((feature) => this._bindFeature(feature));
+        this._renderExtrusion();
+        this._renderSearchOptions();
+        this.setData(wardData);
+        if (lgaFeature) {
+          this.baseViewBox = { ...this.viewBox };
+          this.viewBox = { ...this.baseViewBox };
+          this._updateZoomLabel();
+        }
+        this.stage.classList.add('inistmap-ward-transitioning');
+        requestAnimationFrame(() => this.stage.classList.remove('inistmap-ward-transitioning'));
+        this._showWardAttribution();
+        this.status.textContent = lga + ': ' + wards.length + ' wards. Select a ward to inspect it.';
+        this._emit('inistmap:level-change', { level:'wards', lga, count:wards.length });
+      } catch (error) {
+        if (error.name === 'AbortError') return this;
+        this.status.textContent = error.message || 'Could not load ward boundaries.';
+        this._emit('inistmap:error', { error });
+      } finally {
+        this._wardTransitionPending = false;
+      }
+      return this;
+    }
+
+    _wardDataFor(lga) {
+      const entry = Object.entries(this.options.wardData || {}).find(([name]) => normalize(name) === normalize(lga));
+      return entry ? entry[1] || {} : {};
+    }
+
+    _createWardOverlay(features, lgaFeature) {
+      const bounds = { minLongitude:Infinity, maxLongitude:-Infinity, minLatitude:Infinity, maxLatitude:-Infinity };
+      const visit = (coordinates) => {
+        if (!Array.isArray(coordinates)) return;
+        if (typeof coordinates[0] === 'number' && typeof coordinates[1] === 'number') {
+          bounds.minLongitude = Math.min(bounds.minLongitude, coordinates[0]);
+          bounds.maxLongitude = Math.max(bounds.maxLongitude, coordinates[0]);
+          bounds.minLatitude = Math.min(bounds.minLatitude, coordinates[1]);
+          bounds.maxLatitude = Math.max(bounds.maxLatitude, coordinates[1]);
+        }
+        else coordinates.forEach(visit);
+      };
+      // Fit each LGA's wards to that LGA's own SVG geometry. The bundled LGA
+      // map and the operational ward dataset use different cartographic
+      // sources, so a single statewide transform makes ward shapes drift
+      // into neighboring LGAs or appear as a small state-shaped inset.
+      features.forEach((feature) => feature.geometry && visit(feature.geometry.coordinates));
+      if (!Number.isFinite(bounds.minLongitude) || !Number.isFinite(bounds.minLatitude)) {
+        throw new Error('Ward boundary data does not contain valid coordinates.');
+      }
+      const { minLongitude, maxLongitude, minLatitude, maxLatitude } = bounds;
+      const target = lgaFeature.node.getBBox();
+      const longitudeSpan = Math.max(.000001, maxLongitude - minLongitude);
+      const latitudeSpan = Math.max(.000001, maxLatitude - minLatitude);
+      const project = ([longitude, latitude]) => [
+        target.x + (longitude - minLongitude) / longitudeSpan * target.width,
+        target.y + (maxLatitude - latitude) / latitudeSpan * target.height
+      ];
+      const pathForRings = (rings) => rings.map((ring) => ring.map((point, index) => {
+        const [x, y] = project(point);
+        return (index ? 'L' : 'M') + x.toFixed(2) + ',' + y.toFixed(2);
+      }).join(' ') + ' Z').join(' ');
+      const featureMap = {};
+      const clipPathId = this.instanceId + '-ward-clip';
+      const defs = this.svg.querySelector('defs') || document.createElementNS(SVG_NS, 'defs');
+      if (!defs.parentNode) this.svg.insertBefore(defs, this.svg.firstChild);
+      const clip = document.createElementNS(SVG_NS, 'clipPath');
+      clip.id = clipPathId;
+      clip.setAttribute('clipPathUnits', 'userSpaceOnUse');
+      let clippedFeature = lgaFeature.node.cloneNode(false);
+      ['id', 'class', 'style', 'tabindex', 'role', 'aria-label', 'aria-pressed', 'data-inistmap-id'].forEach((name) => clippedFeature.removeAttribute(name));
+      for (let parent = lgaFeature.node.parentElement; parent && parent !== this.svg; parent = parent.parentElement) {
+        const transform = parent.getAttribute('transform');
+        if (!transform) continue;
+        const wrapper = document.createElementNS(SVG_NS, 'g');
+        wrapper.setAttribute('transform', transform);
+        wrapper.append(clippedFeature);
+        clippedFeature = wrapper;
+      }
+      clip.append(clippedFeature);
+      defs.append(clip);
+      const layer = document.createElementNS(SVG_NS, 'g');
+      layer.setAttribute('class', 'inistmap-ward-layer');
+      layer.setAttribute('clip-path', 'url(#' + clipPathId + ')');
+      layer.setAttribute('fill-rule', 'evenodd');
+      features.forEach((feature, index) => {
+        const id = 'ward-' + String(index + 1).padStart(3, '0');
+        const polygonList = feature.geometry.type === 'MultiPolygon' ? feature.geometry.coordinates : [feature.geometry.coordinates];
+        const d = polygonList.map(pathForRings).join(' ');
+        featureMap[id] = feature.properties.ward;
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.id = id;
+        path.setAttribute('d', d);
+        path.setAttribute('class', 'inistmap-ward-shape');
+        path.setAttribute('fill-rule', 'evenodd');
+        layer.append(path);
+      });
+      const metadata = document.createElementNS(SVG_NS, 'metadata');
+      metadata.textContent = 'Ward source: CIESIN, Columbia University and GRID3. 2026. GRID3 NGA Operational Wards v4.0. https://doi.org/10.7916/2pfj-hq78. CC BY-SA 4.0.';
+      this.svg.append(metadata, layer);
+      return Object.assign(layer, { featureMap });
+    }
+
+    backToLGAs() {
+      if (this._mapLevel !== 'wards' || !this._mainViewSnapshot) return this;
+      const snapshot = this._mainViewSnapshot;
+      this._cancelViewAnimation();
+      this._cancelWheelZoom();
+      this._hidePopover();
+      this._mapLevel = 'lgas';
+      this.baseViewBox = { ...snapshot.baseViewBox };
+      this.viewBox = { ...snapshot.baseViewBox };
+      this.options.title = this._mainMapTitle;
+      this.options.valueLabel = snapshot.valueLabel;
+      this.options.showLabels = snapshot.showLabels;
+      this.options.labelMode = snapshot.labelMode;
+      this.selectedId = null;
+      this.search.closest('.inistmap-search-wrap').hidden = !this.options.showSearch;
+      this.search.closest('.inistmap-search-wrap').querySelector('span').textContent = 'Find an LGA';
+      this.search.placeholder = 'Search LGAs';
+      this.search.value = snapshot.selectedName || '';
+      this.tools.querySelector('[data-action="back-to-lgas"]').hidden = true;
+      this.tools.querySelector('[data-action="fit-selection"]').disabled = !snapshot.selectedId;
+      this.shell.querySelector('.inistmap-title').textContent = this._mainMapTitle;
+      this.shell.querySelector('.inistmap-subtitle').textContent = 'Explore local data by local government area.';
+      this.stage.setAttribute('aria-label', 'Map. Use plus and minus to zoom, drag to pan, and select an area for details.');
+      this.stage.classList.add('inistmap-ward-transitioning');
+      this._installMapMarkup(snapshot.markup, snapshot.featureMap, snapshot.data);
+      this._updateZoomLabel();
+      requestAnimationFrame(() => this.stage.classList.remove('inistmap-ward-transitioning'));
+      this.stage.querySelector('.inistmap-ward-attribution')?.remove();
+      this.selectedId = snapshot.selectedId;
+      const selected = this.features.find((feature) => feature.id === snapshot.selectedId);
+      if (selected) {
+        this.features.forEach((feature) => {
+          const active = feature.name === selected.name;
+          feature.node.classList.toggle('inistmap-selected', active);
+          feature.node.setAttribute('aria-pressed', String(active));
+        });
+        this._showDetail(selected);
+      }
+      this.status.textContent = 'Back to Niger State LGAs.';
+      this._mainViewSnapshot = null;
+      this._emit('inistmap:level-change', { level:'lgas' });
+      return this;
+    }
+
+    _showWardAttribution() {
+      const attribution = document.createElement('a');
+      attribution.className = 'inistmap-ward-attribution';
+      attribution.href = 'https://doi.org/10.7916/2pfj-hq78';
+      attribution.target = '_blank';
+      attribution.rel = 'noopener noreferrer';
+      attribution.textContent = 'Ward boundaries: GRID3 / CIESIN · operational data';
+      attribution.title = 'GRID3 NGA Operational Wards v4.0, CC BY-SA 4.0';
+      this.stage.append(attribution);
     }
 
     _escape(value) {
@@ -1081,6 +1374,7 @@
       this.destroyed = true;
       this._clearPopoverHideTimer();
       this.abortController.abort();
+      this._navigationController?.abort();
       this._cancelWheelZoom();
       this._cancelViewAnimation();
       this.clearPins();

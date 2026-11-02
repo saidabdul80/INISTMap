@@ -1,38 +1,194 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-	<title></title>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="stylesheet" type="text/css" href="custom.min.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7f6">
+  <meta name="description" content="INISTMap is a dependency-free, embeddable interactive map of Niger State, Nigeria.">
+  <title>INISTMap — Niger State map plugin</title>
+  <link rel="stylesheet" href="inistmap.css">
+  <style>
+    :root { color-scheme:light; --ink:#172d32; --muted:#637b7c; --line:#dce8e5; --brand:#087f72; --coral:#ef7954; --canvas:#f3f7f6; }
+    * { box-sizing:border-box; }
+    body { background:var(--canvas); color:var(--ink); font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; margin:0; }
+    button,a { font:inherit; }
+    button { cursor:pointer; }
+    .wrap { margin:auto; max-width:1200px; padding:0 28px; }
+    .topbar { align-items:center; border-bottom:1px solid var(--line); display:flex; height:72px; justify-content:space-between; }
+    .brand { align-items:center; color:var(--ink); display:flex; font-size:15px; font-weight:800; gap:10px; letter-spacing:-.04em; text-decoration:none; }
+    .brand-mark { align-items:center; background:var(--brand); border-radius:9px; color:white; display:flex; font-size:12px; height:30px; justify-content:center; width:30px; }
+    .topnav { align-items:center; display:flex; gap:22px; }
+    .topnav a { color:var(--muted); font-size:12px; font-weight:650; text-decoration:none; }
+    .topnav a:hover { color:var(--brand); }
+    .hero { align-items:center; display:grid; gap:36px; grid-template-columns:1.1fr .9fr; padding:56px 0 40px; }
+    .eyebrow { color:var(--brand); font-size:10px; font-weight:850; letter-spacing:.16em; margin:0 0 13px; text-transform:uppercase; }
+    h1 { font-size:clamp(38px,5vw,60px); letter-spacing:-.065em; line-height:1.02; margin:0; max-width:650px; }
+    .hero-copy { color:var(--muted); font-size:16px; margin:18px 0 0; max-width:570px; }
+    .hero-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:23px; }
+    .button { align-items:center; background:var(--brand); border:1px solid var(--brand); border-radius:10px; color:#fff; display:inline-flex; font-size:12px; font-weight:750; justify-content:center; min-height:42px; padding:0 15px; text-decoration:none; transition:transform .15s ease,background .15s ease; }
+    .button:hover { background:#06685f; transform:translateY(-1px); }
+    .button.secondary { background:white; border-color:var(--line); color:var(--ink); }
+    .button.secondary:hover { background:#eaf2f0; }
+    .hero-note { color:#718787; font-size:11px; margin-top:13px; }
+    .hero-card { background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 16px 45px rgba(21,59,57,.08); padding:20px; transform:rotate(1deg); }
+    .hero-card-top { align-items:center; display:flex; justify-content:space-between; }
+    .hero-card-top strong { font-size:12px; }
+    .live { align-items:center; color:#257665; display:flex; font-size:10px; font-weight:750; gap:6px; }
+    .live:before { background:#42aa7a; border-radius:50%; content:""; height:7px; width:7px; }
+    .hero-card-stats { display:grid; gap:9px; grid-template-columns:repeat(3,1fr); margin:18px 0 9px; }
+    .hero-card-stats div { background:#f4f8f7; border-radius:10px; padding:10px; }
+    .hero-card-stats b { display:block; font-size:18px; letter-spacing:-.05em; }
+    .hero-card-stats span { color:var(--muted); font-size:9px; }
+    .demo-section { padding:28px 0 42px; }
+    .section-heading { align-items:end; display:flex; justify-content:space-between; margin-bottom:16px; }
+    h2 { font-size:22px; letter-spacing:-.045em; margin:0; }
+    .section-heading p { color:var(--muted); font-size:12px; margin:5px 0 0; }
+    .toolbar { align-items:center; display:flex; flex-wrap:wrap; gap:8px; }
+    .toolbar-label { color:var(--muted); font-size:11px; margin-right:3px; }
+    .toggle { background:#fff; border:1px solid var(--line); border-radius:9px; color:#456061; font-size:11px; font-weight:700; min-height:34px; padding:0 11px; }
+    .toggle[aria-pressed="true"] { background:#e3f2ee; border-color:#b9ddd3; color:#08695e; }
+    .main-demo { display:grid; gap:14px; grid-template-columns:minmax(0,1.7fr) minmax(240px,.72fr); }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:15px; box-shadow:0 8px 24px rgba(21,59,57,.04); }
+    .panel-head { align-items:center; border-bottom:1px solid #e9efed; display:flex; justify-content:space-between; padding:14px 17px; }
+    .panel-head strong { font-size:12px; }
+    .panel-head span { color:var(--muted); font-size:10px; }
+    .panel-map { padding:10px; }
+    .panel-map .inistmap-shell { border:0; box-shadow:none; }
+    .panel-map .inistmap-header { display:none; }
+    .panel-map .inistmap-stage { min-height:400px; }
+    .panel-map .inistmap-aside { border:0; }
+    .insight-panel { padding:17px; }
+    .insight-title { color:var(--muted); font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+    .insight-selected { border-bottom:1px solid var(--line); padding:8px 0 16px; }
+    .insight-selected h3 { font-size:22px; letter-spacing:-.045em; margin:2px 0; }
+    .insight-selected p { color:var(--muted); font-size:11px; margin:0; }
+    .insight-number { color:var(--brand); font-size:38px; font-weight:820; letter-spacing:-.07em; line-height:1.1; margin-top:13px; }
+    .insight-list { display:grid; gap:9px; margin-top:16px; }
+    .insight-row { align-items:center; display:flex; font-size:11px; justify-content:space-between; }
+    .insight-row span { color:var(--muted); }
+    .progress { background:#eaf0ee; border-radius:99px; height:6px; margin-top:5px; overflow:hidden; }
+    .progress i { background:linear-gradient(90deg,#43ac91,#087f72); border-radius:99px; display:block; height:100%; }
+    .demo-grid { display:grid; gap:14px; grid-template-columns:1fr 1fr; margin-top:18px; }
+    .mini-map { padding:8px; }
+    .plain-map { background:#0b1020; border-color:#26324a; grid-column:1/-1; overflow:hidden; padding:0 10px 10px; }
+    .plain-map .panel-head { border-color:#26324a; color:#f3f5f9; margin:0 -10px 10px; padding:14px 17px; }
+    .plain-map .panel-head span { color:#98a7bd; }
+    .plain-map .inistmap-plain .inistmap-stage { border-radius:8px; min-height:min(78vh,680px); }
+    .mini-map .inistmap-header { padding:14px; }
+    .mini-map .inistmap-stage { min-height:240px; }
+    .mini-map .inistmap-aside { min-height:190px; }
+    .map-card-dark { background:#122528; border-radius:13px; padding:8px; }
+    .map-card-dark .inistmap-shell { border-color:#263c3f; }
+    .snippet-grid { display:grid; gap:14px; grid-template-columns:1.1fr .9fr; margin-top:18px; }
+    .snippet { background:#142b30; border-radius:14px; color:#d9ebdf; overflow:hidden; }
+    .snippet-head { align-items:center; border-bottom:1px solid #315052; color:#a9c3be; display:flex; font-size:10px; justify-content:space-between; padding:12px 15px; }
+    pre { font:11px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; margin:0; overflow:auto; padding:16px; }
+    .feature-list { display:grid; gap:9px; grid-template-columns:1fr 1fr; list-style:none; margin:0; padding:18px; }
+    .feature-list li { align-items:center; color:#486365; display:flex; font-size:11px; gap:8px; }
+    .check { align-items:center; background:#e4f3ed; border-radius:50%; color:#087f72; display:inline-flex; flex:none; font-size:10px; height:18px; justify-content:center; width:18px; }
+    footer { border-top:1px solid var(--line); color:var(--muted); font-size:10px; margin-top:14px; padding:20px 0 28px; }
+    @media(max-width:850px) { .hero { gap:22px; grid-template-columns:1fr; padding-top:40px; } .hero-card { display:none; } .main-demo,.snippet-grid { grid-template-columns:1fr; } .insight-panel { display:grid; gap:12px; grid-template-columns:1fr 1fr; } .insight-selected { border:0; } .insight-list { margin:0; } }
+    @media(max-width:620px) { .wrap { padding:0 15px; } .topbar { height:60px; } .topnav { gap:12px; } .topnav a { font-size:10px; } .hero { padding:35px 0 23px; } .hero-copy { font-size:14px; } .section-heading { align-items:flex-start; flex-direction:column; gap:12px; } .toolbar { width:100%; } .main-demo { gap:10px; } .panel-map { padding:4px; } .panel-map .inistmap-stage { min-height:290px; } .demo-grid { grid-template-columns:1fr; } .insight-panel { grid-template-columns:1fr; } .feature-list { grid-template-columns:1fr; } }
+  </style>
 </head>
 <body>
-	<h1>Getting Started</h1>
-	<h2>Preparation</h2>
-	<p>All you need to do is to locate the file nistMap.html from nis folder</p>
+  <div class="wrap">
+    <nav class="topbar" aria-label="Main navigation">
+      <a class="brand" href="#top"><span class="brand-mark">IM</span> INISTMap</a>
+      <div class="topnav"><a href="#demos">Demos</a><a href="#integrate">Integration</a><a href="README.md">Docs</a></div>
+    </nav>
+    <main id="top">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Maps for useful local insight</p>
+          <h1>Niger State data,<br>made visible.</h1>
+          <p class="hero-copy">An interactive, embeddable map plugin for dashboards and data products. Bring your own values, highlight places, and give users a clear way to explore.</p>
+          <div class="hero-actions"><a class="button" href="#demos">Explore the demos <span aria-hidden="true">&nbsp;↘</span></a><a class="button secondary" href="#integrate">Get started</a></div>
+          <p class="hero-note">Plain JavaScript · No jQuery · No Bootstrap · No build step</p>
+        </div>
+        <div class="hero-card" aria-label="Dashboard preview">
+          <div class="hero-card-top"><strong>Regional response</strong><span class="live">LIVE VIEW</span></div>
+          <div class="hero-card-stats"><div><b>25</b><span>LGAs</span></div><div><b>76%</b><span>average coverage</span></div><div><b>18</b><span>reports today</span></div></div>
+          <div id="hero-map"></div>
+        </div>
+      </section>
 
+      <section class="demo-section" id="demos">
+        <div class="section-heading"><div><p class="eyebrow">Working examples</p><h2>A map that fits your dashboard</h2><p>Switch datasets, select an LGA, or copy a pattern for your product.</p></div>
+          <div class="toolbar" aria-label="Choose map dataset"><span class="toolbar-label">View:</span><button class="toggle" data-set="coverage" aria-pressed="true">Coverage</button><button class="toggle" data-set="agents" aria-pressed="false">Field teams</button><button class="toggle" data-set="incidents" aria-pressed="false">Open reports</button></div>
+        </div>
+        <div class="main-demo">
+          <div class="panel">
+            <div class="panel-head"><strong id="dataset-title">Service coverage</strong><span>Illustrative demo data</span></div>
+            <div class="panel-map"><div id="main-map"></div></div>
+          </div>
+          <aside class="panel insight-panel" aria-live="polite">
+            <div class="insight-selected"><span class="insight-title">Selected area</span><h3 id="selected-name">Choose an LGA</h3><p id="selected-description">Select a district on the map to inspect its demo metrics.</p><div class="insight-number" id="selected-value">—</div></div>
+            <div><span class="insight-title">Sample area breakdown</span><div class="insight-list" id="area-breakdown"></div></div>
+          </aside>
+        </div>
 
-	<h4>Example</h4>
-<textarea disabled="true" style="border: none;background-color:white; width: 100%; height: 100px;">
-<div style="display: flex; justify-content: center; align-items: center;">
-	<iframe src="nis/nist_Map.html" style="width: 100%;height: 500px;border: none;"></iframe>
-</div>	
-</textarea>
-<br>
-<center>
-		<h1>2D Map</h1>
-</center>
-	<div style="display: flex; justify-content: center; align-items: center;">
-		<iframe src="nist_Map.html" style="width: 100%; height: 500px; border: none;" id="i1" class="iframe" ></iframe>
-	</div>
-<center>
-		<h1>3D Map</h1>
-</center>
-	<div style="display: flex; justify-content: center; align-items: center;">
-		<iframe src="nist_Map1.html" style="width: 100%; height: 500px; border: none;" id="i2" class="iframe"></iframe>
-	</div>
-	<script>
-	
-		
-	</script>
+        <div class="demo-grid">
+          <article class="panel plain-map"><div class="panel-head"><strong>Plain choropleth map</strong><span>Click any district label or shape · Drag to pan · Wheel/pinch to zoom</span></div><div id="plain-map"></div></article>
+          <article class="panel mini-map"><div class="panel-head"><strong>Location pins</strong><span>Click a pin</span></div><div id="pin-map"></div></article>
+          <article class="map-card-dark"><div id="dark-map"></div></article>
+        </div>
+
+        <div class="snippet-grid" id="integrate">
+          <article class="snippet"><div class="snippet-head"><span>VANILLA JAVASCRIPT · LOCAL FILES</span><span>2 files</span></div><pre><code>&lt;link rel="stylesheet" href="inistmap.css"&gt;
+&lt;div id="service-map" style="height:420px"&gt;&lt;/div&gt;
+&lt;script src="inistmap.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  const map = new INISTMap('#service-map', {
+    title: 'Service coverage',
+    valueLabel: 'Coverage',
+    data: { SULEJA: { value: 91, label: '91%' } },
+    onFeatureClick: area =&gt; openPanel(area.name)
+  });
+&lt;/script&gt;</code></pre></article>
+          <article class="panel"><div class="panel-head"><strong>Designed for product UI</strong><span>Scoped styles · Responsive</span></div><ul class="feature-list"><li><span class="check">✓</span> Small dashboard cards</li><li><span class="check">✓</span> Compact layout option</li><li><span class="check">✓</span> Light or dark theme</li><li><span class="check">✓</span> Bring your own dataset</li><li><span class="check">✓</span> Search and keyboard use</li><li><span class="check">✓</span> Events and API methods</li></ul></article>
+        </div>
+      </section>
+    </main>
+    <footer>INISTMap · Interactive map of Niger State, Nigeria · Built with native SVG and JavaScript.</footer>
+  </div>
+  <script src="inistmap.js"></script>
+  <script>
+    const coverage = {
+      Mokwa:{value:81,label:'81%',description:'Strong service coverage across reporting locations.'}, Edati:{value:63,label:'63%',description:'Coverage is building across active locations.'}, Lavun:{value:72,label:'72%'}, Katcha:{value:58,label:'58%'}, Lapai:{value:76,label:'76%'}, Paikoro:{value:69,label:'69%'}, Gurara:{value:91,label:'91%'}, Tafa:{value:66,label:'66%'}, Bida:{value:87,label:'87%'}, Gbako:{value:66,label:'66%'}, Bosso:{value:94,label:'94%'}, Muya:{value:61,label:'61%'}, Chanchaga:{value:89,label:'89%'}, Shiroro:{value:54,label:'54%'}, Wushishi:{value:73,label:'73%'}, Rafi:{value:57,label:'57%'}, Mariga:{value:68,label:'68%'}, Magama:{value:79,label:'79%'}, Agwara:{value:52,label:'52%'}, Mashegu:{value:64,label:'64%'}, Borgu:{value:71,label:'71%'}, Kontagora:{value:86,label:'86%'}, Rijau:{value:74,label:'74%'}, Agai:{value:62,label:'62%'}, Suleja:{value:92,label:'92%'}
+    };
+    const agents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:18+(i*7)%34,label:String(18+(i*7)%34),description:'Field teams currently reporting from this area.'}]));
+    const incidents = Object.fromEntries(Object.entries(coverage).map(([name,item],i)=>[name,{...item,value:(i*3)%13,label:String((i*3)%13),description:'Open reports logged in this demo area.'}]));
+    const datasets = {coverage:{title:'Service coverage',label:'Coverage',data:coverage,colors:['#e6f2ee','#087f72']},agents:{title:'Field team activity',label:'Agents reporting',data:agents,colors:['#eaf0fb','#496dce']},incidents:{title:'Open reports by LGA',label:'Open reports',data:incidents,colors:['#fff0e9','#e46846']}};
+    const mapOptions = (data, label, colors, compact=false, theme='light') => ({title:'Niger State',data,valueLabel:label,colors,compact,theme,showLegend:false,showSearch:false,showStats:false});
+    const mainMap = new INISTMap('#main-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors),onFeatureClick:updateInsight});
+    new INISTMap('#hero-map', {...mapOptions(coverage,'Coverage',datasets.coverage.colors,true),showLabels:false});
+    new INISTMap('#pin-map', {...mapOptions({},'Locations',['#e8f3f1','#087f72'],true),pins:[{x:497,y:335,label:'Bida operations hub',description:'Regional coordination point',color:'#ef7954'},{x:693,y:415,label:'Suleja field office',description:'Support and logistics',color:'#4b72d5'}],onReady(map){map.addPin({x:383,y:525,label:'Mokwa supply point',color:'#36a67f',onClick:()=>alert('Mokwa supply point selected')});}});
+    new INISTMap('#dark-map', {...mapOptions(agents,'Agents reporting',datasets.agents.colors,true,'dark'),showLegend:false,showStats:false});
+    const plainPalette={A:'#f1b80b',APC:'#b5002b'};
+    const plainData={};
+    [...new Set(Object.values(INISTMap.features))].forEach((name,index)=>{const lead=index%3===0?'APC':'A';plainData[name]={value:lead==='APC'?1:0,label:lead,color:plainPalette[lead]};});
+    new INISTMap('#plain-map',{title:'Niger State',data:plainData,variant:'plain',theme:'dark',showSearch:false,showStats:false,showLegend:false,showLabels:true,labelMode:'both',zoomOnSelect:true,extrusionDepth:8,popover:true});
+
+    function updateInsight(area) {
+      document.querySelector('#selected-name').textContent=area.name;
+      document.querySelector('#selected-value').textContent=area.label||String(area.value??'—');
+      document.querySelector('#selected-description').textContent=area.description||'Sample dashboard value for this local government area.';
+      document.querySelector('#area-breakdown').innerHTML='<div><div class="insight-row"><strong>Coverage</strong><span>'+coverage[area.name]?.value+'%</span></div><div class="progress"><i style="width:'+coverage[area.name]?.value+'%"></i></div></div><div><div class="insight-row"><strong>Agents active</strong><span>'+agents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(agents[area.name]?.value*2,100)+'%"></i></div></div><div><div class="insight-row"><strong>Open reports</strong><span>'+incidents[area.name]?.value+'</span></div><div class="progress"><i style="width:'+Math.min(incidents[area.name]?.value*8,100)+'%"></i></div></div>';
+    }
+    document.querySelectorAll('[data-set]').forEach(button=>button.addEventListener('click',()=>{
+      const set=datasets[button.dataset.set];
+      document.querySelectorAll('[data-set]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+      document.querySelector('#dataset-title').textContent=set.title;
+      mainMap.options.valueLabel=set.label;
+      mainMap.options.colors=set.colors;
+      mainMap.setData(set.data);
+      updateInsight({name:'Choose an LGA',label:'—',description:'Select a district on the map to inspect its demo metrics.'});
+      document.querySelector('#selected-name').textContent='Choose an LGA';
+      document.querySelector('#selected-value').textContent='—';
+      document.querySelector('#area-breakdown').replaceChildren();
+    }));
+    mainMap.ready.then(()=>mainMap.select('Borgu')).catch(console.error);
+  </script>
 </body>
 </html>

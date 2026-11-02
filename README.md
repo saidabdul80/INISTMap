@@ -68,7 +68,7 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 - Ward-level choropleths using your own metric for every ward in an LGA.
 - Categorical election views that color each LGA or ward by the party with the most votes.
 - Search and keyboard-accessible LGA selection.
-- Wheel/pinch zoom, drag-to-pan, zoom-to-selection, reset, and fullscreen controls.
+- Wheel/pinch and double-click zoom, drag-to-pan, zoom-to-selection, reset, and fullscreen controls.
 - SVG and PNG export of the current map view.
 - Optional pins with custom content and click callbacks.
 - Events and methods for updating data, selecting an LGA, and adding/removing pins.
@@ -100,6 +100,9 @@ The map needs a container with a non-zero height. The default LGA SVG is bundled
 | `showControls` | `true` | Show zoom, focus, reset, fullscreen, and export controls. |
 | `wheelZoom` | `true` | Enable wheel and touchpad zoom over the map. Two-finger touch zoom is also supported. |
 | `wheelSensitivity` | `20` | Adjust wheel and trackpad zoom speed from `0.1` (gentle) to `20` (fast). Large values are capped to a smooth per-step change. |
+| `doubleClickZoom` | `true` | Zoom toward the pointer when users double-click the map. Set `false` to disable it and handle the browser's `dblclick` event yourself. |
+| `doubleClickZoomFactor` | `2` | Zoom multiplier for double-click, clamped between `1.1` and `4`. |
+| `doubleClickDelay` | `450` | Delay single-click actions that drill into wards or redirect, so a double-click can zoom the map instead. Clamped to 180–700 ms. |
 | `minZoom` / `maxZoom` | `0` / `8` | Set allowed zoom bounds relative to the initial view. `minZoom: 0` permits zooming out to the 0% display floor; values above zero set a closer zoom-out limit. |
 | `panOverscroll` | `0.12` | Allow a small pan margin around the map, including at the initial zoom level. Set to `0` to keep the map inside its original bounds. |
 | `extrusionDepth` | `0` | Draw one continuous, offset map silhouette behind the regions. Set a small value such as `8` for outside-only 3D depth. |

@@ -87,6 +87,10 @@ export interface INISTMapOptions {
   showControls?: boolean;
   wheelZoom?: boolean;
   wheelSensitivity?: number;
+  doubleClickZoom?: boolean;
+  doubleClickZoomFactor?: number;
+  /** Delay single-click LGA drilldown to distinguish it from a double-click. Clamped to 180–700 ms. */
+  doubleClickDelay?: number;
   minZoom?: number;
   maxZoom?: number;
   panOverscroll?: number;

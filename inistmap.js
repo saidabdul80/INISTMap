@@ -33,6 +33,9 @@
     showControls: true,
     wheelZoom: true,
     wheelSensitivity: 20,
+    doubleClickZoom: true,
+    doubleClickZoomFactor: 2,
+    doubleClickDelay: 450,
     minZoom: 0,
     maxZoom: 8,
     panOverscroll: 0.12,
@@ -206,6 +209,8 @@
       this._onPointerDown = (event) => {
         if (event.button !== undefined && event.button !== 0) return;
         if (event.target.closest?.('.inistmap-pin')) return;
+        this._cancelPendingFeatureClick();
+        this._lastPointerType = event.pointerType;
         this._cancelWheelZoom();
         this._cancelViewAnimation();
         this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -276,6 +281,15 @@
       document.addEventListener('pointermove', this._onPointerMove, { signal });
       document.addEventListener('pointerup', this._onPointerUp, { signal });
       document.addEventListener('pointercancel', this._onPointerUp, { signal });
+      if (this.options.doubleClickZoom) {
+        this.svg.addEventListener('dblclick', (event) => {
+          event.preventDefault();
+          this._cancelPendingFeatureClick();
+          const configuredFactor = Number(this.options.doubleClickZoomFactor);
+          const factor = Number.isFinite(configuredFactor) ? Math.max(1.1, Math.min(4, configuredFactor)) : 2;
+          this.zoomBy(factor, event.clientX, event.clientY, true);
+        }, { signal });
+      }
       this.svg.addEventListener('keydown', (event) => {
         if (event.key === '+' || event.key === '=') { event.preventDefault(); this.zoomBy(1.2, undefined, undefined, true); }
         if (event.key === '-') { event.preventDefault(); this.zoomBy(1 / 1.2, undefined, undefined, true); }
@@ -761,7 +775,7 @@
           this._suppressNextClick = false;
           return;
         }
-        this._activateFeature(feature, event);
+        this._handleFeatureClick(feature, event);
       });
       node.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -775,6 +789,40 @@
       const wanted = normalize(key);
       const entry = Object.entries(this.data || {}).find(([candidate]) => normalize(candidate) === wanted);
       return entry ? entry[1] || {} : null;
+    }
+
+    _cancelPendingFeatureClick() {
+      if (this._pendingFeatureClickTimer) clearTimeout(this._pendingFeatureClickTimer);
+      this._pendingFeatureClickTimer = null;
+      this._pendingFeatureClick = null;
+    }
+
+    _handleFeatureClick(feature, event) {
+      if (!this.options.doubleClickZoom) {
+        this._activateFeature(feature, event);
+        return;
+      }
+      if (event?.detail >= 2) {
+        this._cancelPendingFeatureClick();
+        return;
+      }
+      const hasWardBoundaries = this.options.wardGeoJSON || this._wardGeoJSON || root.INISTMapWardData || this.options.wardDataUrl;
+      const item = this._featureData(feature);
+      const hasRedirect = this._featureUrl(item) && (this.options.redirectOnFeatureClick || item.redirect === true || item.navigate === true || typeof item.redirect === 'string');
+      const delayedAction = (this._mapLevel === 'lgas' && this.options.wardDrilldown && hasWardBoundaries) || hasRedirect;
+      if (!delayedAction || event?.detail === 0 || this._lastPointerType === 'touch') {
+        this._activateFeature(feature, event);
+        return;
+      }
+      this._cancelPendingFeatureClick();
+      this._pendingFeatureClick = { feature, event };
+      const configuredDelay = Number(this.options.doubleClickDelay);
+      const delay = Number.isFinite(configuredDelay) ? Math.max(180, Math.min(700, configuredDelay)) : 450;
+      this._pendingFeatureClickTimer = setTimeout(() => {
+        const pending = this._pendingFeatureClick;
+        this._cancelPendingFeatureClick();
+        if (pending && !this.destroyed && this._mapLevel === 'lgas') this._activateFeature(pending.feature, pending.event);
+      }, delay);
     }
 
     _withPartyResults(item) {
@@ -1143,7 +1191,7 @@
               this._suppressNextClick = false;
               return;
             }
-            this._activateFeature(features[0], event);
+            this._handleFeatureClick(features[0], event);
           });
           text.addEventListener('pointerenter', (event) => this._hover(features[0], event));
           text.addEventListener('pointerleave', () => this._hover(null));
@@ -1500,6 +1548,7 @@
     async openWardMap(lgaName) {
       const bundledWardData = this.options.wardGeoJSON || this._wardGeoJSON || root.INISTMapWardData;
       if (!this.options.wardDrilldown || (!bundledWardData && !this.options.wardDataUrl) || this._mapLevel !== 'lgas' || this._wardTransitionPending) return this;
+      this._cancelPendingFeatureClick();
       this._wardTransitionPending = true;
       const requestedLga = String(lgaName || '');
       const lgaFeature = this.features.find((feature) => normalizeLga(feature.name) === normalizeLga(requestedLga));
@@ -1757,6 +1806,7 @@
     destroy() {
       this.destroyed = true;
       this._clearPopoverHideTimer();
+      this._cancelPendingFeatureClick();
       this.abortController.abort();
       this._navigationController?.abort();
       this._cancelWheelZoom();
